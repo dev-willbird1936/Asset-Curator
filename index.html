@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self'; frame-src 'self'; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Asset Curator — one dungeon, four ways to build it</title>
+<meta name="description" content="Play four versions of the same game brief, built by an AI agent with and without the Asset Curator plugin.">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<header class="top">
+  <a class="mark" href="./">Asset Curator</a>
+  <nav><a href="#play">Play</a><a href="#video" id="navVideo" hidden>Video</a><a href="#how">How it was made</a><a href="https://github.com/dev-willbird1936/Asset-Curator" rel="noopener">GitHub</a></nav>
+</header>
+<main>
+<section class="hero">
+  <p class="eyebrow">Hermes agent plugin</p>
+  <h1>One dungeon.<br>Four ways to build it.</h1>
+  <p class="lede">The same game brief was given to the same AI model four times. The only thing that changed was whether it could find real licensed assets, make its own, both, or neither. Play each result.</p>
+</section>
+
+<section id="play" class="bench" aria-label="Play the four games">
+  <div class="bar">
+    <div role="tablist" aria-label="Asset workflow" id="tabs"></div>
+    <a id="open" class="open" href="play/baseline/" target="_blank" rel="noopener">Open full window ↗</a>
+  </div>
+  <div class="frame"><iframe id="world" title="Game" allow="autoplay; fullscreen" allowfullscreen></iframe></div>
+  <p class="status" id="status" role="status">Loading…</p>
+  <p class="keys"><b>Start</b>, then <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows to move, <kbd>E</kbd> to pick up three coins and the key, avoid the skeleton, <kbd>E</kbd> at the north door. Click the game first so it takes the keyboard.</p>
+</section>
+
+<section id="video" hidden>
+  <h2>The 90-second demo</h2>
+  <video id="demo" controls preload="metadata" playsinline></video>
+</section>
+
+<section id="results">
+  <h2>What each run did</h2>
+  <div class="scroll"><table><thead><tr><th>Run</th><th>Asset tools</th><th>Asset slots filled by real files</th><th>Automated play test</th></tr></thead><tbody id="rows"></tbody></table></div>
+</section>
+
+<section id="how">
+  <h2>How it was made</h2>
+  <ul>
+    <li>Every run got the identical brief and the same Three.js 0.184 runtime, in a clean Hermes profile, with Sonnet 5.5 requested at high effort.</li>
+    <li>The game code is exactly what the model returned. Only a small hosting header was added so the files load on a static site.</li>
+    <li>"Create only" is a second run. The test harness wrongly blocked three sprite calls in the first one, so it is not shown.</li>
+    <li>Each game was played once by a keyboard bot. Sound was not listened to, and taking damage and running out of time were not tested.</li>
+    <li id="withheldNote" hidden></li>
+  </ul>
+  <p class="fine">Brief fingerprint: <code id="brief"></code></p>
+  <details><summary>Asset sources and licences</summary><div class="scroll"><table><thead><tr><th>Run</th><th>Asset</th><th>Source</th><th>Licence</th></tr></thead><tbody id="credits"></tbody></table></div></details>
+</section>
+</main>
+<footer>Experimental results, not a claim that every asset or mechanic succeeded. Three.js is MIT licensed.</footer>
+<script src="site.js" defer></script>
+</body>
+</html>

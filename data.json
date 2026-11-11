@@ -1,0 +1,459 @@
+{
+ "briefSHA256": "46ce7c7471004684d6fd6850abca73439ce6c63aaacf3418fd12b53fa14670d2",
+ "runs": [
+  {
+   "id": "baseline",
+   "label": "No plugin",
+   "tools": 0,
+   "summary": "Bot won in 16s, restart resets; guard damage and timeout untested",
+   "slots": "0 of 13",
+   "gameSHA256": "096ca1a5d396a2447b2572a89c6074fe43f85c3e1fe0d6e1f47c8f2c52ccf8f5"
+  },
+  {
+   "id": "existing",
+   "label": "Grab only",
+   "tools": 16,
+   "summary": "Bot won in 27s, restart resets; guard damage and timeout untested",
+   "slots": "16 of 25",
+   "gameSHA256": "61afba03243261c533c6dee5d02dffa446da9b4a5ed30b395731d1c45d7804a9"
+  },
+  {
+   "id": "create",
+   "label": "Create only",
+   "tools": 16,
+   "summary": "Bot won in 20s, restart resets; guard damage and timeout untested",
+   "slots": "22 of 27",
+   "gameSHA256": "6b5b9b6a4d7a81fb23ee0a7a89870b735148488f3229abb4c20ba60e57e44a33"
+  },
+  {
+   "id": "both",
+   "label": "Both",
+   "tools": 16,
+   "summary": "Bot won in 15s, restart resets; guard damage and timeout untested",
+   "slots": "20 of 23",
+   "gameSHA256": "313966d3f7dadff124bfb2f9ab3bd64c91d87f8194835ac91d0f628692e17d8c"
+  }
+ ],
+ "withheld": [
+  "coins-sound.wav",
+  "heavy-sliding-door.wav",
+  "strong-punches-to-the-body.wav",
+  "unlock-game-notification.wav"
+ ],
+ "credits": [
+  {
+   "title": "UnifrakturMaguntia",
+   "source": "google-fonts",
+   "url": "https://fonts.google.com/specimen/UnifrakturMaguntia",
+   "license": "SIL Open Font License 1.1",
+   "attribution": "Preserve OFL.txt and comply with font-name/redistribution conditions.",
+   "creator": "See bundled font license",
+   "run": "Grab only"
+  },
+  {
+   "title": "KayKit Knight",
+   "source": "kaykit",
+   "url": "https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0/tree/672074b73ba276876a19e8816ecdc5241817ab47",
+   "license": "Creative Commons CC0",
+   "attribution": "KayKit by Kay Lousberg, CC0. Credit is appreciated but not required.",
+   "creator": "Kay Lousberg (kaylousberg.com)",
+   "run": "Grab only"
+  },
+  {
+   "title": "KayKit Skeleton Warrior",
+   "source": "kaykit",
+   "url": "https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0/tree/15b62b9bad122f72926c10fb14d622c73819fa54",
+   "license": "Creative Commons CC0",
+   "attribution": "KayKit by Kay Lousberg, CC0. Credit is appreciated but not required.",
+   "creator": "Kay Lousberg (kaylousberg.com)",
+   "run": "Grab only"
+  },
+  {
+   "title": "KayKit barrel large",
+   "source": "kaykit",
+   "url": "https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0/tree/b0ca9bd96a8072ab36a3a5464f00ed1e06a16d07",
+   "license": "Creative Commons CC0",
+   "attribution": "KayKit by Kay Lousberg, CC0. Credit is appreciated but not required.",
+   "creator": "Kay Lousberg (kaylousberg.com)",
+   "run": "Grab only"
+  },
+  {
+   "title": "KayKit box large",
+   "source": "kaykit",
+   "url": "https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0/tree/b0ca9bd96a8072ab36a3a5464f00ed1e06a16d07",
+   "license": "Creative Commons CC0",
+   "attribution": "KayKit by Kay Lousberg, CC0. Credit is appreciated but not required.",
+   "creator": "Kay Lousberg (kaylousberg.com)",
+   "run": "Grab only"
+  },
+  {
+   "title": "KayKit chest",
+   "source": "kaykit",
+   "url": "https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0/tree/b0ca9bd96a8072ab36a3a5464f00ed1e06a16d07",
+   "license": "Creative Commons CC0",
+   "attribution": "KayKit by Kay Lousberg, CC0. Credit is appreciated but not required.",
+   "creator": "Kay Lousberg (kaylousberg.com)",
+   "run": "Grab only"
+  },
+  {
+   "title": "KayKit key",
+   "source": "kaykit",
+   "url": "https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0/tree/b0ca9bd96a8072ab36a3a5464f00ed1e06a16d07",
+   "license": "Creative Commons CC0",
+   "attribution": "KayKit by Kay Lousberg, CC0. Credit is appreciated but not required.",
+   "creator": "Kay Lousberg (kaylousberg.com)",
+   "run": "Grab only"
+  },
+  {
+   "title": "Lucide coins",
+   "source": "lucide",
+   "url": "https://lucide.dev/icons/coins",
+   "license": "ISC",
+   "attribution": "Preserve the included lucide-LICENSE.txt copyright and permission notice.",
+   "creator": "Lucide contributors",
+   "run": "Grab only"
+  },
+  {
+   "title": "Lucide heart",
+   "source": "lucide",
+   "url": "https://lucide.dev/icons/heart",
+   "license": "ISC",
+   "attribution": "Preserve the included lucide-LICENSE.txt copyright and permission notice.",
+   "creator": "Lucide contributors",
+   "run": "Grab only"
+  },
+  {
+   "title": "Lucide key",
+   "source": "lucide",
+   "url": "https://lucide.dev/icons/key",
+   "license": "ISC",
+   "attribution": "Preserve the included lucide-LICENSE.txt copyright and permission notice.",
+   "creator": "Lucide contributors",
+   "run": "Grab only"
+  },
+  {
+   "title": "Rock Tile Floor",
+   "source": "polyhaven",
+   "url": "https://polyhaven.com/a/rock_tile_floor",
+   "license": "Creative Commons CC0",
+   "attribution": null,
+   "creator": null,
+   "run": "Grab only"
+  },
+  {
+   "title": "Stone Brick Wall 001",
+   "source": "polyhaven",
+   "url": "https://polyhaven.com/a/stone_brick_wall_001",
+   "license": "Creative Commons CC0",
+   "attribution": null,
+   "creator": null,
+   "run": "Grab only"
+  },
+  {
+   "title": "UnifrakturCook",
+   "source": "google-fonts",
+   "url": "https://fonts.google.com/specimen/UnifrakturCook",
+   "license": "SIL Open Font License 1.1",
+   "attribution": "Preserve OFL.txt and comply with font-name/redistribution conditions.",
+   "creator": "See bundled font license",
+   "run": "Both"
+  },
+  {
+   "title": "KayKit Knight",
+   "source": "kaykit",
+   "url": "https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0/tree/672074b73ba276876a19e8816ecdc5241817ab47",
+   "license": "Creative Commons CC0",
+   "attribution": "KayKit by Kay Lousberg, CC0. Credit is appreciated but not required.",
+   "creator": "Kay Lousberg (kaylousberg.com)",
+   "run": "Both"
+  },
+  {
+   "title": "KayKit Skeleton Warrior",
+   "source": "kaykit",
+   "url": "https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0/tree/15b62b9bad122f72926c10fb14d622c73819fa54",
+   "license": "Creative Commons CC0",
+   "attribution": "KayKit by Kay Lousberg, CC0. Credit is appreciated but not required.",
+   "creator": "Kay Lousberg (kaylousberg.com)",
+   "run": "Both"
+  },
+  {
+   "title": "KayKit barrel large",
+   "source": "kaykit",
+   "url": "https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0/tree/b0ca9bd96a8072ab36a3a5464f00ed1e06a16d07",
+   "license": "Creative Commons CC0",
+   "attribution": "KayKit by Kay Lousberg, CC0. Credit is appreciated but not required.",
+   "creator": "Kay Lousberg (kaylousberg.com)",
+   "run": "Both"
+  },
+  {
+   "title": "KayKit box large",
+   "source": "kaykit",
+   "url": "https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0/tree/b0ca9bd96a8072ab36a3a5464f00ed1e06a16d07",
+   "license": "Creative Commons CC0",
+   "attribution": "KayKit by Kay Lousberg, CC0. Credit is appreciated but not required.",
+   "creator": "Kay Lousberg (kaylousberg.com)",
+   "run": "Both"
+  },
+  {
+   "title": "KayKit chest",
+   "source": "kaykit",
+   "url": "https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0/tree/b0ca9bd96a8072ab36a3a5464f00ed1e06a16d07",
+   "license": "Creative Commons CC0",
+   "attribution": "KayKit by Kay Lousberg, CC0. Credit is appreciated but not required.",
+   "creator": "Kay Lousberg (kaylousberg.com)",
+   "run": "Both"
+  },
+  {
+   "title": "Lucide coins",
+   "source": "lucide",
+   "url": "https://lucide.dev/icons/coins",
+   "license": "ISC",
+   "attribution": "Preserve the included lucide-LICENSE.txt copyright and permission notice.",
+   "creator": "Lucide contributors",
+   "run": "Both"
+  },
+  {
+   "title": "Lucide heart",
+   "source": "lucide",
+   "url": "https://lucide.dev/icons/heart",
+   "license": "ISC",
+   "attribution": "Preserve the included lucide-LICENSE.txt copyright and permission notice.",
+   "creator": "Lucide contributors",
+   "run": "Both"
+  },
+  {
+   "title": "Lucide key",
+   "source": "lucide",
+   "url": "https://lucide.dev/icons/key",
+   "license": "ISC",
+   "attribution": "Preserve the included lucide-LICENSE.txt copyright and permission notice.",
+   "creator": "Lucide contributors",
+   "run": "Both"
+  },
+  {
+   "title": "Stone Brick Wall 001",
+   "source": "polyhaven",
+   "url": "https://polyhaven.com/a/stone_brick_wall_001",
+   "license": "Creative Commons CC0",
+   "attribution": null,
+   "creator": null,
+   "run": "Both"
+  },
+  {
+   "title": "Stone Tiles 02",
+   "source": "polyhaven",
+   "url": "https://polyhaven.com/a/stone_tiles_02",
+   "license": "Creative Commons CC0",
+   "attribution": null,
+   "creator": null,
+   "run": "Both"
+  },
+  {
+   "title": "Synthesized ambient music loop",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Both"
+  },
+  {
+   "title": "Spinning coin sprite",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Both"
+  },
+  {
+   "title": "Pixel particle burst",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Both"
+  },
+  {
+   "title": "Looping pixel fire",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Both"
+  },
+  {
+   "title": "Looping magic portal",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Both"
+  },
+  {
+   "title": "Parameterized ZzFX sound effect",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Both"
+  },
+  {
+   "title": "Parameterized ZzFX sound effect",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Both"
+  },
+  {
+   "title": "Parameterized ZzFX sound effect",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Both"
+  },
+  {
+   "title": "Parameterized ZzFX sound effect",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Both"
+  },
+  {
+   "title": "Low-poly metal barrel GLB",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Create only"
+  },
+  {
+   "title": "Low-poly wooden crate GLB",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Create only"
+  },
+  {
+   "title": "Synthesized ambient music loop",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Create only"
+  },
+  {
+   "title": "Pixelbolt recipe: hud-icons",
+   "source": "procedural",
+   "url": "https://github.com/skulitom/Pixelbolt",
+   "license": "User-authored procedural recipe; Pixelbolt runtime MIT",
+   "attribution": null,
+   "creator": null,
+   "run": "Create only"
+  },
+  {
+   "title": "Pixelbolt recipe: key-pickup",
+   "source": "procedural",
+   "url": "https://github.com/skulitom/Pixelbolt",
+   "license": "User-authored procedural recipe; Pixelbolt runtime MIT",
+   "attribution": null,
+   "creator": null,
+   "run": "Create only"
+  },
+  {
+   "title": "Spinning coin sprite",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Create only"
+  },
+  {
+   "title": "Seamless stone brick PBR material",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Create only"
+  },
+  {
+   "title": "Pixel particle burst",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Create only"
+  },
+  {
+   "title": "Looping pixel fire",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Create only"
+  },
+  {
+   "title": "Looping magic portal",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Create only"
+  },
+  {
+   "title": "Parameterized ZzFX sound effect",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Create only"
+  },
+  {
+   "title": "Parameterized ZzFX sound effect",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Create only"
+  },
+  {
+   "title": "Parameterized ZzFX sound effect",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Create only"
+  },
+  {
+   "title": "Parameterized ZzFX sound effect",
+   "source": "procedural",
+   "url": "https://github.com/dev-willbird1936/Asset-Curator",
+   "license": "Original procedural output; no third-party media",
+   "attribution": null,
+   "creator": null,
+   "run": "Create only"
+  }
+ ]
+}
