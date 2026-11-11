@@ -1,0 +1,14 @@
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, copyFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+const root = path.dirname(fileURLToPath(import.meta.url));
+const browser = process.env.REMOTION_BROWSER_EXECUTABLE;
+const cli = path.join(root, "node_modules", "@remotion", "cli", "remotion-cli.js");
+if (process.env.REMOTION_LICENSE_ELIGIBLE !== "1") throw new Error("Read LICENSE-Remotion.md. Set REMOTION_LICENSE_ELIGIBLE=1 only after confirming Free License eligibility (including evaluation), or holding the required Company License.");
+if (!existsSync(cli)) throw new Error("Optional Remotion dependencies missing. Review package.json and install them explicitly; nothing was installed automatically.");
+if (!browser || !existsSync(browser)) throw new Error("Set REMOTION_BROWSER_EXECUTABLE to installed Chrome/Chromium. Automatic browser download is not permitted by this starter.");
+mkdirSync(path.join(root, "output"), { recursive: true });
+execFileSync(process.execPath, [cli, "render", path.join(root, "src", "index.tsx"), "AssetClip", path.join(root, "output", "clip.mp4"), "--browser-executable", browser, "--concurrency", "1"], { cwd: root, stdio: "inherit", timeout: 180000 });
+copyFileSync(path.join(root, "LICENSE-Remotion.md"), path.join(root, "output", "LICENSE-Remotion.md"));
+writeFileSync(path.join(root, "output", "GENERATION.json"), JSON.stringify({ tool: "Remotion", version: "4.0.542", source: "https://github.com/remotion-dev/remotion", note: "Runtime license differs from output/input rights; review actual edited composition." }, null, 2));

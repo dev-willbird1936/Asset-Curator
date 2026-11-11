@@ -1,0 +1,10 @@
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, copyFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+const root = path.dirname(fileURLToPath(import.meta.url)), executable = process.env.MATERIAL_MAKER_EXECUTABLE;
+if (!executable || !existsSync(executable)) throw new Error("Material Maker runtime missing. Set MATERIAL_MAKER_EXECUTABLE to your installed app; no automatic installation.");
+const output = path.join(root, "output"); mkdirSync(output, { recursive: true });
+execFileSync(executable, ["--export-material", "--target", "Godot", "-o", output, path.join(root, "material.ptex")], { cwd: root, stdio: "inherit", timeout: 180000 });
+copyFileSync(path.join(root, "LICENSE-Material-Maker.txt"), path.join(output, "LICENSE-Material-Maker.txt"));
+writeFileSync(path.join(output, "GENERATION.json"), JSON.stringify({ tool: "Material Maker", source: "https://github.com/RodZill4/material-maker", template: "MIT metal-pattern-2 node graph", note: "Inspect map conventions and actual edited inputs." }, null, 2));

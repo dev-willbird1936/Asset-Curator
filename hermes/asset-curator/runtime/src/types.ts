@@ -1,0 +1,233 @@
+export type AssetCategory = "2D" | "3D" | "Animation" | "Audio" | "Music" | "Textures" | "UI" | "VFX" | "Unknown";
+
+export type AiAssetAdvisorProvider = "none" | "codex-cli" | "claude-code-cli" | "openai" | "anthropic" | "gemini" | "deepseek" | "openrouter" | "groq" | "parallel" | "nace" | "custom";
+
+export type AssetDownloadMode = "direct" | "assisted" | "manual";
+
+export type AssetSourceSetting = {
+  enabled: boolean;
+  notes?: string;
+};
+
+export type CustomAssetSourceSetting = {
+  id: string;
+  title: string;
+  url: string;
+  category: AssetCategory;
+  enabled: boolean;
+  license?: string;
+  reason?: string;
+};
+
+export type AssetPreferences = {
+  completed: boolean;
+  licensePolicy: "safe" | "any";
+  browserEnabled: boolean;
+  acquisitionMode: "existing" | "create" | "both";
+};
+
+export type AssetGrabberSettings = {
+  preferences: AssetPreferences;
+  assetAdvisor: {
+    provider: AiAssetAdvisorProvider;
+    apiKey?: string;
+    model?: string;
+    customProviderUrl?: string;
+    deepseekApiKey?: string;
+    customProviderApiKey?: string;
+    customProviderModel?: string;
+    deepseekModel?: string;
+    allowNetworkAiRanking: boolean;
+  };
+  search: {
+    allowManualResults: boolean;
+    allowUnknownLicense: boolean;
+    minLicenseSafety: number;
+    defaultOutputDir?: string;
+    keepSourceArchives: boolean;
+    maxResultsDefault: number;
+    maxDownloadBytes: number;
+    maxExtractedBytes: number;
+    maxExtractedFiles: number;
+  };
+  sources: Record<string, AssetSourceSetting>;
+  priorityByCategory: Record<AssetCategory, string[]>;
+  customSources: CustomAssetSourceSetting[];
+};
+
+export type AssetSearchOptions = {
+  request: string;
+  category?: AssetCategory;
+  source?: string;
+  limit?: number;
+  includeManualResults?: boolean;
+  useAdvisor?: boolean;
+};
+
+export type AssetAdvisorIntent = {
+  request?: string;
+  category?: AssetCategory;
+  source?: string;
+  includeManualResults?: boolean;
+  formats?: string[];
+  engine?: string;
+  reason?: string;
+};
+
+export type AssetAdvisorTrace = {
+  provider: AiAssetAdvisorProvider;
+  used: boolean;
+  originalRequest: string;
+  request: string;
+  category?: AssetCategory;
+  source?: string;
+  includeManualResults?: boolean;
+  formats?: string[];
+  engine?: string;
+  reason?: string;
+  error?: string;
+};
+
+export type ProviderDiagnostic = {
+  source: string;
+  ok: boolean;
+  count: number;
+  durationMs?: number;
+  error?: string;
+};
+
+export type AssetSearchResponse = {
+  results: AssetSearchResult[];
+  diagnostics: ProviderDiagnostic[];
+  advisor: AssetAdvisorTrace;
+  relevance?: AssetRelevanceTrace;
+};
+
+export type AssetRelevanceTrace = {
+  provider: AiAssetAdvisorProvider;
+  used: boolean;
+  basis: "metadata-only" | "web-grounded-metadata";
+  protocol?: "typed-decisions";
+  requestedModel?: string;
+  model?: string;
+  citations?: { url: string; title?: string; excerpts: string[] }[];
+  usage?: { inputTokens?: number; outputTokens?: number; cost?: number };
+  evaluated: number;
+  rejected: number;
+  error?: string;
+};
+
+export type AssetDownloadFile = {
+  url: string;
+  /** Safe relative pack path; model texture/buffer dependencies retain folders. */
+  fileName?: string;
+};
+
+export type AssetSearchResult = {
+  source: string;
+  id: string;
+  title: string;
+  url: string;
+  category: AssetCategory;
+  tags: string[];
+  series: string[];
+  license: string;
+  score: number;
+  reason: string;
+  previewUrl?: string;
+  fileCount?: number;
+  downloadUrl?: string;
+  downloadFileName?: string;
+  downloadQuality?: "original" | "preview" | "unknown";
+  downloadUrls?: AssetDownloadFile[];
+  licenseUrl?: string;
+  attributionRequired?: boolean;
+  creator?: string;
+  creatorUrl?: string;
+  attribution?: string;
+  licenseSafety?: number;
+  downloadMode?: AssetDownloadMode;
+  assistInstructions?: string[];
+  manualDownload?: boolean;
+  generatedAsset?: AssetGeneratedAsset;
+  derivedAsset?: import("./pixel-search.js").PixelSearchAsset;
+  relevance?: { verdict: "relevant" | "irrelevant" | "uncertain"; confidence: number; reason: string };
+  verification?: { basis: "pixel-color-and-subject-metadata"; color: string; visibleColorFraction?: number; note: string };
+};
+
+export type AssetGeneratedAsset = ProceduralSfxAsset | import("./generation.js").ProceduralAsset | import("./pixelbolt.js").PixelboltAsset;
+
+export type ProceduralSfxAsset = {
+  kind: "procedural-sfx";
+  preset: string;
+  seed: number;
+  baseName: string;
+};
+
+export type GrabAssetOptions = AssetSearchOptions & {
+  outputDir?: string;
+  fullPack?: boolean;
+  includeSourceArchive?: boolean;
+  overwrite?: boolean;
+  formats?: string[];
+  engine?: string;
+  maxReadyFiles?: number;
+};
+
+export type PrepareExistingAssetOptions = {
+  sourcePath: string;
+  origin?: "existing" | "created";
+  outputDir?: string;
+  request?: string;
+  engine?: string;
+  formats?: string[];
+  maxReadyFiles?: number;
+  overwrite?: boolean;
+  licenseName?: string;
+  licenseUrl?: string;
+  sourceUrl?: string;
+  attributionRequired?: boolean;
+};
+
+export type EngineReadinessReport = {
+  basis: "format-and-metadata-only-no-engine-import";
+  engine?: string;
+  recommendedFormats: string[];
+  selectedFormats: string[];
+  warnings: string[];
+  notes: string[];
+};
+
+export type GrabbedAssetManifest = {
+  request: string;
+  generatedAt: string;
+  source: string;
+  asset: AssetSearchResult;
+  paths: {
+    root: string;
+    pack: string;
+    ready: string;
+    archive?: string;
+    manifest: string;
+  };
+  selectedFiles: string[];
+  readyFiles: string[];
+  allExtractedFileCount: number;
+  conversions?: { source: string; output: string; operation: "embed-gltf-resources" }[];
+  artifactFacts?: import("./artifact-facts.js").ArtifactFacts;
+  cacheKey?: string;
+  cacheHit?: boolean;
+  advisor?: AssetAdvisorTrace;
+  relevance?: AssetRelevanceTrace;
+  diagnostics?: ProviderDiagnostic[];
+  browser?: import("./browser.js").BrowserTrace;
+  license: {
+    name: string;
+    url?: string;
+    attributionRequired: boolean;
+    shipSafe?: boolean;
+  };
+  engineReadiness?: EngineReadinessReport;
+  importNotes: string[];
+  alternatives: AssetSearchResult[];
+};

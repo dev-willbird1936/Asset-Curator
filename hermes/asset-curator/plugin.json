@@ -1,0 +1,79 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "asset-curator",
+  "version": "0.2.0",
+  "description": "Find usable assets or create them from code, with saved license/browser/acquisition policy, optional classifier and preserved provenance.",
+  "author": {
+    "name": "dev-willbird1936",
+    "url": "https://github.com/dev-willbird1936"
+  },
+  "homepage": "https://github.com/dev-willbird1936/Asset-Grabber",
+  "repository": "https://github.com/dev-willbird1936/Asset-Grabber",
+  "license": "MIT",
+  "keywords": [
+    "assets",
+    "mcp",
+    "sprites",
+    "3d",
+    "audio",
+    "procedural",
+    "provenance"
+  ],
+  "extensions": {
+    "com.nousresearch.hermes": {
+      "servers": {
+        "asset-curator": {
+          "trust": "untrusted",
+          "timeout": 180
+        }
+      },
+      "config_schema": {
+        "openai_key": {
+          "type": "secret",
+          "env": "OPENAI_API_KEY",
+          "label": "Optional OpenAI classifier key"
+        },
+        "anthropic_key": {
+          "type": "secret",
+          "env": "ANTHROPIC_API_KEY",
+          "label": "Optional Anthropic classifier key"
+        },
+        "gemini_key": {
+          "type": "secret",
+          "env": "GEMINI_API_KEY",
+          "label": "Optional Gemini classifier key"
+        },
+        "deepseek_key": {
+          "type": "secret",
+          "env": "DEEPSEEK_API_KEY",
+          "label": "Optional DeepSeek classifier key"
+        },
+        "openrouter_key": {
+          "type": "secret",
+          "env": "OPENROUTER_API_KEY",
+          "label": "Optional OpenRouter classifier key"
+        },
+        "groq_key": {
+          "type": "secret",
+          "env": "GROQ_API_KEY",
+          "label": "Optional Groq classifier key"
+        },
+        "nace_key": {
+          "type": "secret",
+          "env": "NACE_API_KEY",
+          "label": "Optional direct Nace / Drex v1.1 key"
+        },
+        "parallel_key": {
+          "type": "secret",
+          "env": "PARALLEL_API_KEY",
+          "label": "Optional Parallel Decisions key"
+        },
+        "custom_key": {
+          "type": "secret",
+          "env": "ASSET_GRABBER_ADVISOR_API_KEY",
+          "label": "Optional custom classifier key"
+        }
+      }
+    }
+  }
+}

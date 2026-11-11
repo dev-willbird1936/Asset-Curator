@@ -1,0 +1,29 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "asset-curator": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${PLUGIN_ROOT}/launch.mjs"
+      ],
+      "cwd": "${PLUGIN_DATA}",
+      "env": {
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
+        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
+        "GEMINI_API_KEY": "${GEMINI_API_KEY}",
+        "DEEPSEEK_API_KEY": "${DEEPSEEK_API_KEY}",
+        "OPENROUTER_API_KEY": "${OPENROUTER_API_KEY}",
+        "GROQ_API_KEY": "${GROQ_API_KEY}",
+        "PARALLEL_API_KEY": "${PARALLEL_API_KEY}",
+        "NACE_API_KEY": "${NACE_API_KEY}",
+        "ASSET_GRABBER_ADVISOR_API_KEY": "${ASSET_GRABBER_ADVISOR_API_KEY}",
+        "ASSET_GRABBER_SAFE_ROOT": "${ASSET_GRABBER_SAFE_ROOT}",
+        "ASSET_GRABBER_ADVISOR_PROVIDER": "${ASSET_GRABBER_ADVISOR_PROVIDER}",
+        "ASSET_GRABBER_ADVISOR_MODEL": "${ASSET_GRABBER_ADVISOR_MODEL}",
+        "ASSET_GRABBER_ADVISOR_URL": "${ASSET_GRABBER_ADVISOR_URL}",
+        "ASSET_GRABBER_BROWSER_EXECUTABLE": "${ASSET_GRABBER_BROWSER_EXECUTABLE}"
+      }
+    }
+  }
+}

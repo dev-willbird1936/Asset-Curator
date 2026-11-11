@@ -1,0 +1,14 @@
+import { execFileSync } from "node:child_process";
+import { readFileSync, existsSync, mkdirSync, copyFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+const root = path.dirname(fileURLToPath(import.meta.url)), repo = process.env.PIXELFX_DIR;
+if (!repo || !existsSync(path.join(repo, "tools/render.mjs"))) throw new Error("PixelFX runtime missing. Set PIXELFX_DIR to the reviewed pinned checkout; no automatic download was attempted.");
+const pkg = JSON.parse(readFileSync(path.join(repo, "package.json"), "utf8"));
+if (pkg.name !== "pixelfx" || pkg.version !== "0.3.1") throw new Error("Expected reviewed PixelFX 0.3.1 (commit 044e12a45dc9cc312cec50ee606dfc98afe5adc2)");
+const recipe = JSON.parse(readFileSync(path.join(root, "effect.json"), "utf8"));
+if (!/^[a-z0-9_-]+\/[a-z0-9_-]+$/.test(recipe.effect) || !Number.isInteger(recipe.seed) || recipe.seed < 0 || recipe.seed > 0xffffffff || !Number.isInteger(recipe.fps) || recipe.fps < 1 || recipe.fps > 30) throw new Error("Invalid PixelFX effect, seed or fps");
+const out = path.join(root, "output"); mkdirSync(out, { recursive: true });
+execFileSync(process.execPath, [path.resolve(repo, "tools/render.mjs"), recipe.effect, "--sheet", "--no-actor", "--seed", String(recipe.seed), "--fps", String(recipe.fps), "--opts", JSON.stringify(recipe.options ?? {}), "--out", out], { stdio: "inherit", timeout: 90000 });
+copyFileSync(path.join(root, "LICENSE-PixelFX.txt"), path.join(out, "LICENSE-PixelFX.txt"));
+writeFileSync(path.join(out, "GENERATION.json"), JSON.stringify({ tool: "PixelFX", version: pkg.version, revision: "044e12a45dc9cc312cec50ee606dfc98afe5adc2", source: "https://github.com/patch-gg/pixelfx", recipe, note: "Inspect output and preserve actual input rights; metadata is not clearance." }, null, 2));

@@ -1,0 +1,58 @@
+{
+  "name": "asset-grabber-mcp",
+  "version": "0.2.0",
+  "description": "Policy-aware MCP asset curation and code creation: search, download, prepare and generate with provenance.",
+  "type": "module",
+  "license": "MIT",
+  "author": "dev-willbird1936",
+  "homepage": "https://github.com/dev-willbird1936/Asset-Grabber#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dev-willbird1936/Asset-Grabber.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dev-willbird1936/Asset-Grabber/issues"
+  },
+  "keywords": [
+    "mcp",
+    "game-assets",
+    "kenney",
+    "polyhaven",
+    "ambientcg",
+    "roblox",
+    "unity",
+    "godot",
+    "procedural-sfx"
+  ],
+  "exports": {
+    "./generation": "./lib/generation.js",
+    "./pixelbolt": "./lib/pixelbolt.js"
+  },
+  "bin": {
+    "asset-grabber-mcp": "./lib/index.js"
+  },
+  "scripts": {},
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "cheerio": "^1.1.2",
+    "pixelbolt": "0.15.0",
+    "playwright-core": "^1.60.0",
+    "yauzl": "^3.2.0",
+    "zod": "^4.6.7"
+  },
+  "overrides": {
+    "undici": "^7.30.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/yauzl": "^2.10.3",
+    "playwright": "^1.60.0",
+    "three": "^0.184.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "private": true
+}

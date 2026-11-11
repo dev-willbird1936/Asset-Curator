@@ -1,0 +1,6 @@
+{
+  "effect": "fire/torch",
+  "seed": 42,
+  "fps": 12,
+  "options": {}
+}
