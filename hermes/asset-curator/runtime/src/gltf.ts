@@ -52,7 +52,8 @@ export async function repackGltf(file: string, root: string, output: string): Pr
   const buffers = model.buffers ?? [], views = model.bufferViews ?? [], images = model.images ?? [];
   if (!Array.isArray(buffers) || !Array.isArray(views) || !Array.isArray(images) || buffers.length > 256 || images.length > 256 || views.length > 100000) throw new Error("Invalid/oversized glTF resource tables");
   for (const buffer of buffers) {
-    if (!Number.isSafeInteger(buffer.byteLength) || buffer.byteLength < 0 || buffer.byteLength > LIMIT) throw new Error("Invalid glTF buffer length");
+    if (!Number.isSafeInteger(buffer.byteLength) || buffer.byteLength < 0) throw new Error("Invalid glTF buffer length");
+    if (buffer.byteLength > LIMIT) throw new Error("glTF buffer exceeds the 64 MiB single-file GLB repack cap");
     const bytes = await resource(buffer.uri);
     if (bytes.length < buffer.byteLength) throw new Error("Truncated glTF buffer");
     offsets.push(append(bytes.subarray(0, buffer.byteLength)));

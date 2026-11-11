@@ -101,6 +101,12 @@ export type AssetSearchResponse = {
   diagnostics: ProviderDiagnostic[];
   advisor: AssetAdvisorTrace;
   relevance?: AssetRelevanceTrace;
+  /** How the request was read. Category is inferred from wording unless passed explicitly. */
+  interpretation?: { category: AssetCategory; categoryBasis: string; excludedTerms: string[]; requestedStyles: string[] };
+  /** Matching leads hidden because they need browser-assisted or manual retrieval. */
+  withheld?: { count: number; sources: string[]; note: string };
+  /** Present when nothing matched or no result's style is confirmed. Routes to try, never matches. */
+  nextSteps?: string[];
 };
 
 export type AssetRelevanceTrace = {
@@ -147,6 +153,8 @@ export type AssetSearchResult = {
   attribution?: string;
   licenseSafety?: number;
   downloadMode?: AssetDownloadMode;
+  /** Metadata-only style evidence; never a visual check. */
+  style?: import("./intent.js").StyleEvidence;
   assistInstructions?: string[];
   manualDownload?: boolean;
   generatedAsset?: AssetGeneratedAsset;
@@ -165,6 +173,8 @@ export type ProceduralSfxAsset = {
 };
 
 export type GrabAssetOptions = AssetSearchOptions & {
+  /** Exact "source:id" of a search_assets result; that result is grabbed or the call fails. */
+  assetId?: string;
   outputDir?: string;
   fullPack?: boolean;
   includeSourceArchive?: boolean;
@@ -214,6 +224,8 @@ export type GrabbedAssetManifest = {
   readyFiles: string[];
   allExtractedFileCount: number;
   conversions?: { source: string; output: string; operation: "embed-gltf-resources" }[];
+  /** Why a requested conversion was not performed; the original files were delivered instead. */
+  conversionWarnings?: string[];
   artifactFacts?: import("./artifact-facts.js").ArtifactFacts;
   cacheKey?: string;
   cacheHit?: boolean;

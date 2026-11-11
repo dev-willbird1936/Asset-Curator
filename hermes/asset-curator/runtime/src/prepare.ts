@@ -22,7 +22,10 @@ const TEXTURE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "mtl"]);
 export async function grabAsset(options: GrabAssetOptions): Promise<GrabbedAssetManifest> {
   const settings = await loadSettings();
   if (!settings.preferences.completed) assertAcquisitionAllowed(settings, "existing");
-  const searchResponse = await searchAssetsWithDiagnostics({ ...options, includeManualResults: options.includeManualResults ?? settings.preferences.browserEnabled, limit: Math.max(options.limit ?? 8, 3) });
+  // assetId ("source:id" from search_assets) pins the exact result the agent or user chose.
+  const pinnedSource = options.assetId ? options.assetId.slice(0, options.assetId.lastIndexOf(":")) : undefined;
+  if (options.assetId && (!pinnedSource || options.source && options.source !== pinnedSource)) throw new Error("assetId must be the 'source:id' of a search_assets result and agree with source");
+  const searchResponse = await searchAssetsWithDiagnostics({ ...options, source: pinnedSource ?? options.source, includeManualResults: options.includeManualResults ?? settings.preferences.browserEnabled, limit: options.assetId ? 25 : Math.max(options.limit ?? 8, 3) });
   return prepareSearchResult(options, searchResponse, settings);
 }
 
@@ -46,7 +49,8 @@ export async function generatePixelRecipe(options: { request: string; recipe: Re
 async function prepareSearchResult(options: GrabAssetOptions, searchResponse: AssetSearchResponse, settings: AssetGrabberSettings): Promise<GrabbedAssetManifest> {
   const outputRoot = resolveOutputDir(options.outputDir || settings.search.defaultOutputDir);
   const results = searchResponse.results;
-  const asset = results.find(isDirectMaterialized) ?? results[0];
+  const asset = options.assetId ? results.find((item) => `${item.source}:${item.id}` === options.assetId) : results.find(isDirectMaterialized) ?? results[0];
+  if (options.assetId && !asset) throw new Error(`assetId ${options.assetId} is not among the current results for this request. Repeat the request text used in search_assets; nothing else was downloaded in its place.`);
   if (!asset) {
     const failed = searchResponse.diagnostics.filter((item) => !item.ok);
     throw new Error("No asset results for request: " + options.request + (failed.length ? ". Provider failures: " + failed.map((item) => item.source + ": " + item.error).join("; ") : ""));
@@ -79,7 +83,10 @@ async function prepareSearchResult(options: GrabAssetOptions, searchResponse: As
     if (!materialized.files.length) throw new Error("Asset contained no supported materialized files");
     await mkdir(readyDir, { recursive: true });
     const selectedFiles = await includeReadyDependencies(selectReadyFiles(materialized.files, options, asset), materialized.files, packDir);
-    const prepared = await prepareReadyFiles(selectedFiles, packDir, readyDir, options.formats, limits.maxExtractedBytes);
+    // "as a GLB" in the request means one portable file: embed a glTF's sidecars instead of shipping loose files.
+    const repack = options.formats ?? (/\bglb\b/i.test(options.request) && !/\bgltf\b/i.test(options.request) ? ["glb"] : undefined);
+    // An explicit formats list is a requirement; a format mentioned in prose is a preference that may fall back.
+    const prepared = await prepareReadyFiles(selectedFiles, packDir, readyDir, repack, limits.maxExtractedBytes, !options.formats);
     const readyFiles = prepared.files;
     await writeLicensePointer(readyDir, asset);
     const keepArchive = (options.includeSourceArchive ?? settings.search.keepSourceArchives) && materialized.archiveWritten;
@@ -89,7 +96,7 @@ async function prepareSearchResult(options: GrabAssetOptions, searchResponse: As
       paths: { root, pack: path.join(root, "pack"), ready: path.join(root, "ready"), archive: keepArchive ? path.join(root, "source.zip") : undefined, manifest: path.join(root, "asset-grabber-manifest.json") },
       selectedFiles: selectedFiles.map((file) => toPosixPath(path.relative(packDir, file))),
       readyFiles: readyFiles.map((file) => toPosixPath(path.relative(readyDir, file))),
-      allExtractedFileCount: materialized.files.length, conversions: prepared.conversions, artifactFacts: await inspectArtifactFacts(readyFiles, readyDir), cacheKey, advisor: searchResponse.advisor, relevance: searchResponse.relevance, diagnostics: searchResponse.diagnostics, browser: materialized.browser,
+      allExtractedFileCount: materialized.files.length, conversions: prepared.conversions, conversionWarnings: prepared.warnings.length ? prepared.warnings : undefined, artifactFacts: await inspectArtifactFacts(readyFiles, readyDir), cacheKey, advisor: searchResponse.advisor, relevance: searchResponse.relevance, diagnostics: searchResponse.diagnostics, browser: materialized.browser,
       license: { name: asset.license, url: asset.licenseUrl, attributionRequired: asset.attributionRequired ?? false, shipSafe: isShipSafe(asset) && (!materialized.browser || materialized.browser.licenseConfirmed) },
       engineReadiness: getEngineReadiness(options, asset, readyFiles), importNotes: getImportNotes(options, asset), alternatives: results.filter((item) => item !== asset)
     };
@@ -329,7 +336,7 @@ async function materializeAsset(
 
 function cacheKeyFor(options: GrabAssetOptions, asset: AssetSearchResult, licensePolicy: "safe" | "any"): string {
   return JSON.stringify({
-    cacheSchema: 5,
+    cacheSchema: 6,
     request: options.request,
     licensePolicy,
     category: options.category,
@@ -432,7 +439,7 @@ async function includeReadyDependencies(selected: string[], files: string[], pac
   return [...result];
 }
 
-async function prepareReadyFiles(files: string[], packDir: string, readyDir: string, formats: string[] | undefined, maxBytes: number) {
+async function prepareReadyFiles(files: string[], packDir: string, readyDir: string, formats: string[] | undefined, maxBytes: number, lenient = false) {
   // CDN suffixes and Content-Type are not proof of the actual encoding. Reject
   // JPEG/HTML disguised as PNG instead of shipping a misleading ready/ manifest.
   // This is a bounded header check, not decoding, alpha or appearance validation.
@@ -447,19 +454,37 @@ async function prepareReadyFiles(files: string[], packDir: string, readyDir: str
   const ready = await copyReadyFiles(files, packDir, readyDir);
   const conversions: NonNullable<GrabbedAssetManifest["conversions"]> = [];
   let producedBytes = 0;
-  if (formats?.some(format => format.toLowerCase().replace(/^\\./, "") === "glb")) {
+  const embedded = new Set<number>(), warnings: string[] = [];
+  if (formats?.some(format => format.toLowerCase().replace(/^\./, "") === "glb")) {
     for (let index = 0; index < ready.length; index++) {
       if (normalizeExtension(ready[index]) !== "gltf") continue;
       const output = ready[index].slice(0, -5) + ".glb";
-      await repackGltf(files[index], packDir, output);
+      try { await repackGltf(files[index], packDir, output); }
+      catch (error) {
+        if (!lenient) throw error;
+        // Deliver the working glTF with its sidecars rather than nothing, and say why.
+        await rm(output, { force: true });
+        warnings.push(`${path.basename(files[index])} was not repacked into a single GLB (${error instanceof Error ? error.message : String(error)}); the glTF and its referenced files are delivered instead.`);
+        continue;
+      }
       producedBytes += (await stat(output)).size;
       if (producedBytes > maxBytes) throw new Error("GLB repack set exceeds configured byte cap");
       conversions.push({ source: toPosixPath(path.relative(packDir, files[index])), output: toPosixPath(path.relative(readyDir, output)), operation: "embed-gltf-resources" });
       await unlink(ready[index]); // Only our fresh staging copy; source pack stays intact.
       ready[index] = output;
+      embedded.add(index);
     }
+    // Every glTF is now a self-contained GLB, so its loose buffers/textures in ready/ are duplicates.
+    // pack/ keeps the originals; licence and notice files are never removed.
+    const keep: string[] = [];
+    const allEmbedded = !warnings.length;
+    for (let index = 0; index < ready.length; index++) {
+      if (!embedded.has(index) && embedded.size && allEmbedded && ["bin", "png", "jpg", "jpeg", "webp", "ktx2"].includes(normalizeExtension(ready[index]))) await unlink(ready[index]);
+      else keep.push(ready[index]);
+    }
+    return { files: keep, conversions, warnings };
   }
-  return { files: ready, conversions };
+  return { files: ready, conversions, warnings };
 }
 
 async function copyReadyFiles(files: string[], packDir: string, readyDir: string): Promise<string[]> {

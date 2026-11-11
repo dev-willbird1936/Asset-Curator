@@ -19,6 +19,11 @@ type SfxPreset =
 type WaveKind = "sine" | "square" | "saw" | "noise";
 
 export function chooseProceduralSfxPreset(request: string): SfxPreset {
+  return matchProceduralSfxPreset(request) ?? "pickupCoin";
+}
+
+/** A preset only when the wording names something it can plausibly produce. */
+export function matchProceduralSfxPreset(request: string): SfxPreset | undefined {
   const lower = request.toLowerCase();
   if (/\b(horror|scary|terror|jumpscare|creepy|haunt)\b/.test(lower)) return "horrorSting";
   if (/\b(explosion|explode|boom|blast|bomb|crash)\b/.test(lower)) return "explosion";
@@ -27,7 +32,8 @@ export function chooseProceduralSfxPreset(request: string): SfxPreset {
   if (/\b(hit|hurt|damage|impact|punch|slash)\b/.test(lower)) return "hitHurt";
   if (/\b(jump|hop|bounce)\b/.test(lower)) return "jump";
   if (/\b(click|select|blip|button|ui|menu|beep)\b/.test(lower)) return "blipSelect";
-  return "pickupCoin";
+  if (/\b(coin|coins|pickup|pick-up|collect|collectible|reward|chime|ding)\b/.test(lower)) return "pickupCoin";
+  return undefined;
 }
 
 export function createProceduralSfxDescriptor(request: string): ProceduralSfxAsset {

@@ -1,6 +1,6 @@
 Asset Curator MCP is maintained by dev-willbird1936.
 
-Canonical repository: https://github.com/dev-willbird1936/Asset-Grabber
+Repository: https://github.com/dev-willbird1936/Asset-Curator
 
 Code-generation integrations:
 - ZzFX 1.4.0 (Frank Force, MIT), revision ac5a4727a44e5506a12f7340087e0b889cfd69dc.
@@ -33,3 +33,6 @@ https://huggingface.co/spaces/cfahlgren1/pixel-search/blob/main/LICENSES/NOTICE.
 Downloaded Openverse media retains the original publisher, creator, license and
 attribution; Openverse indexes third-party claims and does not grant additional rights.
 Audio preview encodings are labeled as previews rather than full-quality originals.
+
+KayKit models are fetched on request from Kay Lousberg's own repositories (https://github.com/KayKit-Game-Assets) at the
+commits pinned in kaykit-index.json. They are CC0; each download includes the pack's LICENSE.txt. No KayKit model is bundled.

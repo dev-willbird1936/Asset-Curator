@@ -1,5 +1,9 @@
 import { slugify } from "./util.js";
 export function chooseProceduralSfxPreset(request) {
+    return matchProceduralSfxPreset(request) ?? "pickupCoin";
+}
+/** A preset only when the wording names something it can plausibly produce. */
+export function matchProceduralSfxPreset(request) {
     const lower = request.toLowerCase();
     if (/\b(horror|scary|terror|jumpscare|creepy|haunt)\b/.test(lower))
         return "horrorSting";
@@ -15,7 +19,9 @@ export function chooseProceduralSfxPreset(request) {
         return "jump";
     if (/\b(click|select|blip|button|ui|menu|beep)\b/.test(lower))
         return "blipSelect";
-    return "pickupCoin";
+    if (/\b(coin|coins|pickup|pick-up|collect|collectible|reward|chime|ding)\b/.test(lower))
+        return "pickupCoin";
+    return undefined;
 }
 export function createProceduralSfxDescriptor(request) {
     const preset = chooseProceduralSfxPreset(request);

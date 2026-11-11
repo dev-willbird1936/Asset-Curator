@@ -1,14 +1,14 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "asset-curator",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Find usable assets or create them from code, with saved license/browser/acquisition policy, optional classifier and preserved provenance.",
   "author": {
     "name": "dev-willbird1936",
     "url": "https://github.com/dev-willbird1936"
   },
-  "homepage": "https://github.com/dev-willbird1936/Asset-Grabber",
-  "repository": "https://github.com/dev-willbird1936/Asset-Grabber",
+  "homepage": "https://github.com/dev-willbird1936/Asset-Curator",
+  "repository": "https://github.com/dev-willbird1936/Asset-Curator",
   "license": "MIT",
   "keywords": [
     "assets",

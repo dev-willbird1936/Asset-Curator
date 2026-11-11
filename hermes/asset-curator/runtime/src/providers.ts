@@ -6,17 +6,22 @@ import { searchFontCatalog, searchIconCatalog } from "./catalogs.js";
 import { searchGeneratedAssets } from "./generation.js";
 import { searchPixelAssets } from "./pixel-search.js";
 import { searchOpenverse } from "./openverse.js";
-import { inferCategory, searchKenneyAssets } from "./kenney.js";
-import { createProceduralSfxDescriptor } from "./procedural-sfx.js";
+import { searchKenneyAssets } from "./kenney.js";
+import { expandedRequest, inferCategory, namedSources, parseIntent, quotedPhrases, scoreText, styleEvidence, styleScore, violatesNegatives } from "./intent.js";
+import { searchKayKit } from "./kaykit.js";
+import { createProceduralSfxDescriptor, matchProceduralSfxPreset } from "./procedural-sfx.js";
 import { assistedSourceIds, isGenerationSource, manualSourceIds } from "./registry.js";
 import { customSourceResults, isSourceEnabled, loadSettings, passesLicenseSettings, sourcePriorityBoost } from "./settings.js";
 import type { AssetCategory, AssetDownloadMode, AssetSearchOptions, AssetSearchResponse, AssetSearchResult, ProviderDiagnostic } from "./types.js";
-import { containsToken, slugify, tokenize } from "./util.js";
+import { slugify, tokenize } from "./util.js";
 
 type Provider = {
   source: string;
   search: (options: AssetSearchOptions) => Promise<AssetSearchResult[]>;
 };
+// Real catalogue searches whose packs need the browser route. They always run, so a
+// search can say "Kenney has this, but browser assistance is off" instead of nothing.
+const REPORT_WHEN_HIDDEN = new Set(["kenney", "quaternius"]);
 
 const CC0_URL = "https://creativecommons.org/publicdomain/zero/1.0/";
 const ASSISTED_SOURCES = new Set(assistedSourceIds());
@@ -40,7 +45,7 @@ export const PROVIDERS: Provider[] = [
   { source: "itch-vfx", search: searchItchVfx },
   { source: "pixabay-audio", search: searchPixabayAudio },
   { source: "quaternius", search: searchQuaternius },
-  staticSource("kaykit", "KayKit", "https://kaylousberg.itch.io/", "3D", 9.4, "CC0 packs on itch; direct download may require itch flow."),
+  { source: "kaykit", search: searchKayKit },
   staticSource("sharetextures", "ShareTextures", "https://www.sharetextures.com/", "Textures", 9.1, "Custom CC0. Site has redirect/human browsing; direct API not wired."),
   staticSource("devassets", "DevAssets", "https://devassets.com/", "2D", 8.9, "Free commercial use, no raw resale. Direct catalog API not wired."),
   staticSource("pixel-frog", "Pixel Frog", "https://pixelfrog-assets.itch.io/", "2D", 8.7, "Pixel art packs; verify per-pack license/download flow."),
@@ -86,6 +91,16 @@ export async function searchAssetsWithDiagnostics(options: AssetSearchOptions): 
   const advised = await applyAssetAdvisor(options, settings, providerNames().filter(permitted));
   const searchOptions = advised.options;
   if (searchOptions.source && !permitted(searchOptions.source)) throw new Error(`Source ${searchOptions.source} is disabled by ${mode} acquisition preferences.`);
+  // One interpretation for every provider: negated words are removed from the query,
+  // and an inferred media type stops e.g. rock textures answering a rock-music request.
+  const intent = parseIntent(searchOptions.request), quoted = quotedPhrases(searchOptions.request), preferred = namedSources(searchOptions.request);
+  const explicitCategory = searchOptions.category && searchOptions.category !== "Unknown" ? searchOptions.category : undefined;
+  const category = explicitCategory ?? inferCategory(intent.positive);
+  const providerOptions: AssetSearchOptions = { ...searchOptions, request: intent.positive, category: category === "Unknown" ? undefined : category };
+  const interpretation = {
+    category, categoryBasis: explicitCategory ? "explicit" as const : category === "Unknown" ? "not inferred; all media types searched" as const : "inferred from wording; pass category to override" as const,
+    excludedTerms: intent.negatives, requestedStyles: intent.styles
+  };
   const effectiveLimit = Math.max(1, Math.min(searchOptions.limit ?? settings.search.maxResultsDefault, 50));
   const includeManualResults = Boolean(searchOptions.includeManualResults || settings.search.allowManualResults || searchOptions.source);
   if (searchOptions.source?.startsWith("custom:")) {
@@ -104,33 +119,51 @@ export async function searchAssetsWithDiagnostics(options: AssetSearchOptions): 
       results: relevance.results,
       diagnostics: [{ source: searchOptions.source, ok: true, count: results.length }],
       advisor: advised.trace,
-      relevance: relevance.trace
+      relevance: relevance.trace,
+      interpretation
     };
   }
   const providers = searchOptions.source
     ? PROVIDERS.filter((provider) => provider.source === searchOptions.source && isSourceEnabled(settings, provider.source) && permitted(provider.source))
     : PROVIDERS.filter(
-        (provider) => isSourceEnabled(settings, provider.source) && permitted(provider.source) && (includeManualResults || !isManualProviderSource(provider.source))
+        (provider) => isSourceEnabled(settings, provider.source) && permitted(provider.source) && (includeManualResults || !isManualProviderSource(provider.source) || REPORT_WHEN_HIDDEN.has(provider.source))
       );
   if (providers.length === 0) throw new Error(`Unknown source: ${searchOptions.source}`);
 
-  const { results: providerResults, diagnostics } = await runProviderSearches(providers, searchOptions);
+  const { results: providerResults, diagnostics } = await runProviderSearches(providers, providerOptions);
   if (searchOptions.source) {
     const failed = diagnostics.find((diagnostic) => !diagnostic.ok);
     if (failed) throw new Error(`Provider ${failed.source} failed: ${failed.error}`);
   }
   const results = [
     ...providerResults,
-    ...(searchOptions.source || mode === "create" ? [] : customSourceResults(settings, searchOptions.category))
+    ...(searchOptions.source || mode === "create" ? [] : customSourceResults(settings, providerOptions.category))
   ];
-  const rankedResults = results
-    .filter((result) => matchesCategory(result, searchOptions.category))
+  const relevant = results
+    .filter((result) => matchesCategory(result, providerOptions.category))
     .map(normalizeAssetResult)
     .filter((result) => isSourceEnabled(settings, result.source))
+    // Source reputation or priority must never turn an unrelated item into a match.
+    .filter((result) => result.score > 0 && !violatesNegatives(result, intent.negatives))
+    .map((result) => {
+      const style = styleEvidence(result, intent.styles);
+      // A quoted exact title or a source named in prose is a stated preference.
+      const title = result.title.toLowerCase().replace(/[_-]+/g, " ");
+      const bonus = (quoted.some((phrase) => title.includes(phrase.replace(/[_-]+/g, " "))) ? 40 : 0) + (preferred.includes(result.source) ? 10 : 0);
+      return { ...result, ...(style ? { style } : {}), score: result.score + styleScore(style) + bonus };
+    })
+    .filter((result) => result.score > 0);
+  // Leads that exist but need the browser route or a manual step are counted, not silently dropped.
+  const hidden = includeManualResults ? [] : relevant.filter((result) => result.manualDownload && passesLicenseSettings(settings, result, { includeManualResults: true }));
+  const withheld = hidden.length ? {
+    count: hidden.length, sources: [...new Set(hidden.map((result) => result.source))],
+    note: "These sources matched but need browser-assisted or manual retrieval. Ask the user to enable browser assistance, or repeat with includeManualResults to see them."
+  } : undefined;
+  const rankedResults = relevant
     .filter((result) => passesLicenseSettings(settings, result, { includeManualResults }))
     .map((result) => ({
       ...result,
-      score: result.score + sourcePriorityBoost(settings, searchOptions.category ?? result.category, result.source)
+      score: result.score + sourcePriorityBoost(settings, providerOptions.category ?? result.category, result.source)
     }))
     .sort((a, b) => effectiveScore(b) - effectiveScore(a) || Number(Boolean(a.manualDownload)) - Number(Boolean(b.manualDownload)))
     .slice(0, effectiveLimit);
@@ -139,8 +172,28 @@ export async function searchAssetsWithDiagnostics(options: AssetSearchOptions): 
     results: relevance.results,
     diagnostics,
     advisor: advised.trace,
-    relevance: relevance.trace
+    relevance: relevance.trace,
+    interpretation,
+    withheld,
+    nextSteps: nextSteps(relevance.results, category, intent.styles, Boolean(withheld), mode)
   };
+}
+
+/** Honest routes when a search is empty or its style is unproven. Suggestions only: nothing here is a match. */
+function nextSteps(results: AssetSearchResult[], category: AssetCategory, styles: string[], withheld: boolean, mode: string): string[] | undefined {
+  const steps: string[] = [];
+  const unproven = results.length > 0 && results.every((result) => result.style && (result.style.unconfirmed.length || result.style.conflicting));
+  if (results.length && !unproven) return undefined;
+  if (unproven) steps.push(`No result's metadata confirms the requested style (${styles.join(", ")}). Look at each result's previewUrl or source page before presenting it as a match, or tell the user no style match was found.`);
+  if (!results.length) steps.push("No licensed match was found. Say so rather than substituting a different asset. Try simpler English subject words, or pass category explicitly if the inferred one is wrong.");
+  if (withheld) steps.push("Matching packs exist on browser-assisted sources (see withheld). They need the user's saved browser consent.");
+  if (mode !== "existing") {
+    if (category === "Music") steps.push("Create instead: generate_asset with preset zzfxm-music and your own song data gives an editable tracker composition (read get_generator_help zzfxm first). It is synthesized chiptune, not a recording.");
+    else if (category === "Audio") steps.push("Create instead: generate_asset with preset zzfx-sfx and explicit synth parameters (see get_generator_help zzfx).");
+    else if (["2D", "UI", "VFX", "Unknown"].includes(category)) steps.push("Create instead: render_pixel_recipe draws custom pixel art from a recipe you write (see get_generator_help pixelbolt). It cannot produce painterly, anime or photographic styles.");
+    else if (category === "3D" || category === "Textures") steps.push("Create instead: list_generators shows the built-in low-poly models and procedural PBR textures; they are simple stylised presets, not arbitrary shapes.");
+  }
+  return steps;
 }
 
 async function runProviderSearches(
@@ -251,8 +304,14 @@ async function searchAmbientCg(options: AssetSearchOptions): Promise<AssetSearch
 async function searchPolyHaven(options: AssetSearchOptions): Promise<AssetSearchResult[]> {
   const hdri = /\b(hdri|hdr|exr|environment[ -]?map|skybox|panorama)\b/i.test(options.request);
   const category = options.category && options.category !== "Unknown" ? options.category : inferCategory(options.request);
-  if (!hdri && category !== "Textures" && category !== "3D" && !isTextureLike(options)) return [];
-  const type = hdri ? "hdris" : category === "3D" ? "models" : "textures";
+  if (options.category && !["Textures", "3D", "Animation", "Unknown"].includes(options.category)) return [];
+  // With no stated media type a subject can be a model or a material ("rock"): search both.
+  if (!hdri && !options.category && category !== "3D" && category !== "Textures") {
+    const both = await Promise.all((["3D", "Textures"] as const).map((kind) => searchPolyHaven({ ...options, category: kind })));
+    return both.flat().sort((a, b) => b.score - a.score).slice(0, Math.max(1, Math.min(options.limit ?? 5, 8)));
+  }
+  if (!hdri && category !== "Textures" && category !== "3D" && category !== "Animation" && !isTextureLike(options)) return [];
+  const type = hdri ? "hdris" : category === "3D" || category === "Animation" ? "models" : "textures";
   const data = JSON.parse(await fetchText(`https://api.polyhaven.com/assets?t=${type}`)) as Record<string, PolyHavenAsset>;
   const tokens = tokenize(options.request);
   const scored = Object.entries(data)
@@ -330,7 +389,10 @@ function focusedQuery(request: string, drop: string[]): string {
 }
 
 async function searchProceduralSfx(options: AssetSearchOptions): Promise<AssetSearchResult[]> {
+  if (options.category && !["Audio", "Unknown"].includes(options.category)) return [];
   if (!isSfxLike(options) || isMusicLike(options)) return [];
+  // Without a matching preset the generator would answer every request with a coin blip.
+  if (!options.source && !matchProceduralSfxPreset(options.request)) return [];
   const descriptor = createProceduralSfxDescriptor(options.request);
   const presetTitle = descriptor.preset.replace(/([a-z])([A-Z])/g, "$1 $2");
   return [
@@ -345,7 +407,8 @@ async function searchProceduralSfx(options: AssetSearchOptions): Promise<AssetSe
       license: "Generated locally; no third-party media",
       attributionRequired: false,
       licenseSafety: 10,
-      score: scoreText(expandedRequest(options.request), `${descriptor.preset} procedural sfx sound effect`, 9.6),
+      // The preset matcher above is the relevance gate; rank below a real recording of the same thing.
+      score: 12,
       reason: "Local deterministic jsfxr-style WAV generated from request",
       generatedAsset: descriptor
     }
@@ -727,17 +790,6 @@ function is2dLike(options: AssetSearchOptions): boolean {
   return options.category === "2D" || options.category === "UI" || options.category === "VFX" || /\b(2d|sprite|svg|clipart|icon|ui|image|button|tile)\b/.test(lower);
 }
 
-function expandedRequest(request: string): string {
-  const lower = request.toLowerCase();
-  const aliases: string[] = [];
-  if (/\b(horror|scary|terror|creepy|haunt)\b/.test(lower)) aliases.push("scary", "halloween", "dark", "suspense", "terror");
-  if (/\b(car|vehicle|auto)\b/.test(lower)) aliases.push("engine", "race car", "transport");
-  if (/\b(ui|button|menu|select)\b/.test(lower)) aliases.push("click", "interface", "alert");
-  if (/\b(spell|magic|wizard)\b/.test(lower)) aliases.push("magic", "spell", "particle");
-  if (/\b(explosion|boom|blast)\b/.test(lower)) aliases.push("impact", "cinematic", "warfare");
-  return aliases.length > 0 ? `${request} ${aliases.join(" ")}` : request;
-}
-
 function mixkitTagCandidates(request: string, mode: MixkitMode): string[] {
   const lower = request.toLowerCase();
   const tags = new Set<string>();
@@ -761,53 +813,6 @@ function mixkitTagCandidates(request: string, mode: MixkitMode): string[] {
   for (const token of tokenize(request).slice(0, 3)) tags.add(slugify(token));
   tags.add(mode === "music" ? "game" : "game");
   return [...tags].filter(Boolean);
-}
-
-function scoreText(request: string, haystack: string, base: number, title = ""): number {
-  const tokens = expandedTokens(request);
-  const lower = haystack.toLowerCase();
-  // Functional/style tags (e.g. a rigged clock) cannot stand in for the requested subject.
-  const subjects = tokenize(request).filter(token => !/^(cartoon|low|poly|lowpoly|rigged|idle|walk|animation|animations|animated|stylized|stylised|photoreal|photorealistic|realistic|textured|flat|color|colour|normal|roughness|albedo|metallic|displacement|seamless|looping|transparent)$/.test(token));
-  if (subjects.length && !subjects.some(token => containsToken(lower, token))) return 0;
-  let score = base;
-  let hits = 0;
-  for (const token of tokens) {
-    if (containsToken(lower, token)) {
-      hits += 1;
-      score += token.length > 5 ? 3.5 : 2.5;
-      // Named subject/style evidence beats incidental words in a long tag list.
-      if (title && containsToken(title, token)) score += 5;
-    }
-  }
-  if (tokens.length > 0) {
-    const coverage = hits / tokens.length;
-    const phrase = tokenize(request).join(" ");
-    score += coverage * 6;
-    // Source quality must never make an unrelated object a positive match.
-    if (hits === 0) return 0;
-    if (phrase && lower.includes(phrase)) score += 4;
-  }
-  return Math.max(0, score);
-}
-
-function expandedTokens(request: string): string[] {
-  const tokens = new Set(tokenize(expandedRequest(request)));
-  const aliases: Record<string, string[]> = {
-    car: ["vehicle", "auto", "transport"],
-    vehicle: ["car", "transport"],
-    tree: ["forest", "foliage", "plant", "nature"],
-    coin: ["pickup", "collect", "reward"],
-    button: ["ui", "interface", "click"],
-    sword: ["weapon", "blade", "attack"],
-    shield: ["armor", "defense", "guard"],
-    magic: ["spell", "wizard", "particle"],
-    explosion: ["blast", "boom", "impact"],
-    horror: ["scary", "dark", "terror"]
-  };
-  for (const token of [...tokens]) {
-    for (const alias of aliases[token] ?? []) tokens.add(alias);
-  }
-  return [...tokens];
 }
 
 type AmbientCgResponse = { foundAssets?: AmbientCgAsset[] };

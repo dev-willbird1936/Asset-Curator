@@ -5,7 +5,7 @@ import path from "node:path";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
-const USER_AGENT = "asset-grabber-mcp/0.1 (+https://modelcontextprotocol.io)";
+const USER_AGENT = "asset-curator-mcp/0.2 (+https://github.com/dev-willbird1936/Asset-Curator)";
 const DEFAULT_DOWNLOAD_TIMEOUT_MS = 120_000;
 const DEFAULT_MAX_DOWNLOAD_BYTES = 750 * 1024 * 1024;
 const DEFAULT_FETCH_RETRIES = 2;

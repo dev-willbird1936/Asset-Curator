@@ -2,7 +2,7 @@
 
 **Find a usable asset or create it from code, with policy and provenance.** This is a real local MCP application, not a prompt-only plugin: indexed catalogs, bounded downloads/extraction, optional browser retrieval, optional relevance checks, programmable pixel art, parameter synthesis and editable code projects.
 
-Local version: **0.2.0**. Compatibility target: **Hermes >=0.23.1**, Node >=20.18.1 with npm (locked Cheerio/Undici floor). Verified on Windows with Node 24.16.0 and Hermes' PM-managed Node 26.12.1; macOS/Linux were not exercised in this run. Source is readable TypeScript plus compiled plain JavaScript; no executable binaries, model weights or node_modules are committed. Catalog admission is pending. Use the exact 40-character commit in the catalog PR; a public repository alone is not an accepted listing.
+Version: **0.2.1**. Compatibility target: **Hermes >=0.23.1**, Node >=20.18.1 with npm (locked Cheerio/Undici floor). Verified on Windows with Node 24.16.0 and Hermes' PM-managed Node 26.12.1; macOS/Linux were not exercised in this run. Source is readable TypeScript plus compiled plain JavaScript; no executable binaries, model weights or node_modules are committed. Catalog admission is pending. Install the exact 40-character commit named in the catalog entry; a public repository alone is not an accepted listing.
 
 ## Install (explicit once)
 
@@ -24,7 +24,8 @@ Start with `get_setup` (Hermes shows MCP names under the server prefix). Ask the
 Save only the user's answers using `configure_preferences`. Optionally ask which decision/classifier provider/model they want; `configure_classifier` accepts NONSECRET provider/model/endpoint only. Default is none, no API cost.
 
 Then:
-- **Existing:** search_assets -> grab_asset -> inspect actual ready/ files and manifest.
+- **Existing:** search_assets -> grab_asset -> inspect actual ready/ files and manifest. Search results say how the request was read (`interpretation`), whether each result's style is confirmed by metadata (`style`), which matches need browser consent (`withheld`) and what to try when nothing fits (`nextSteps`). Pass a result's `source:id` to grab_asset as `assetId` to fetch exactly that one. "not wooden" or "no vocals" excludes those results. A request that says GLB gets one self-contained GLB where the model fits the 64 MiB repack cap.
+- **3D characters and props:** KayKit (CC0) is searched directly: 903 low-poly models including rigged characters with idle, walk and attack clips. Poly Haven covers photoreal models, materials and HDRIs.
 - **Create:** list_generators -> generate_asset (18 presets incl. genuine ZzFX/ZzFXM) or get_generator_help -> render_pixel_recipe for custom declarative Pixelbolt art.
 - **Advanced:** create_generator_project writes complete editable source for eight libraries, never a fake rendered match. Adapt the starter, explicitly execute with an approved optional runtime, inspect actual output, then prepare_existing_asset(origin=created) with its real license/input rights.
 - Keep attribution, notices, manifests and uncertainty. Metadata-only relevance is not image verification. Do not execute scripts from downloaded packs or enable Blender auto-run.
@@ -54,4 +55,4 @@ Optional advanced approved variables: ASSET_GRABBER_ADVISOR_PROVIDER/MODEL/URL c
 
 `hermes plugins doctor /path/to/plugin --ci` and `hermes plugins validate /path/to/plugin --install-deps` use Hermes' real validation, with isolated test home for development. MCP smoke tests must also connect to launch.mjs and invoke the tools, not merely parse these manifests.
 
-See the root README for a verification summary and limitations. No commit, push, PR, X post or form submission is performed by this package.
+See the root README and VALIDATION.md for the checks performed and their limits. No commit, push, PR, X post or form submission is performed by this package.

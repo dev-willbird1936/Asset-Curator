@@ -73,7 +73,7 @@ export function createGeneratedAsset(input: GenerationInput): AssetSearchResult 
   const id = `${preset}-${key}`;
   return {
     source: "procedural", id, title: meta.title, category: meta.category as AssetCategory,
-    url: "https://github.com/dev-willbird1936/Asset-Grabber", tags: preset.split("-"), series: ["Native code generation"],
+    url: "https://github.com/dev-willbird1936/Asset-Curator", tags: preset.split("-"), series: ["Native code generation"],
     license: "Original procedural output; no third-party media", licenseSafety: 10, attributionRequired: false,
     score: 8, reason: `Deterministic ${preset}; seed ${seed}. Limited to the named preset, not arbitrary prompt synthesis.`, downloadMode: "direct",
     generatedAsset: { kind: "procedural", preset, seed, size, frames, color: input.color, parameters, song, baseName: slugify(id) }

@@ -31,7 +31,7 @@ export async function inspectArtifactFacts(files, root) {
                             triangles += Math.max(0, entries - 2);
                     }
                 fact.model = { meshDefinitions: (model.meshes ?? []).length, primitiveDefinitions: primitives, materialDefinitions: (model.materials ?? []).length, vertexEntries: vertices, triangleDefinitions: triangles, skins: (model.skins ?? []).length, animations: (model.animations ?? []).map((clip, i) => typeof clip.name === "string" ? clip.name.slice(0, 160) : `unnamed-${i}`) };
-                fact.note = "Accessor-declared counts, summed per primitive definition (shared vertices may repeat). Not scene-instance totals or renderer validation. Animation names do not prove usable movement.";
+                fact.note = (triangles > 500000 ? `Very heavy mesh (${triangles.toLocaleString("en-US")} triangles): expect to decimate or add LODs before real-time use. ` : "") + "Accessor-declared counts, summed per primitive definition (shared vertices may repeat). Not scene-instance totals or renderer validation. Animation names do not prove usable movement.";
             }
             else if (format === "png" || format === "wav") {
                 const handle = await open(file, "r");

@@ -1,6 +1,6 @@
 {
   "sources": [
-    { "id": "kenney", "title": "Kenney", "mode": "direct", "category": "Unknown", "license": "Creative Commons CC0", "licenseSafety": 10, "notes": "CC0 packs for 2D, 3D, UI, and audio" },
+    { "id": "kenney", "title": "Kenney", "mode": "assisted", "category": "Unknown", "license": "Creative Commons CC0", "licenseSafety": 10, "notes": "CC0 packs for 2D, 3D, UI and audio; packs download through a signed link, so retrieval uses the consented browser route" },
     { "id": "ambientcg", "title": "ambientCG", "mode": "direct", "category": "Textures", "license": "Creative Commons CC0", "licenseSafety": 10, "notes": "CC0 PBR textures/materials" },
     { "id": "polyhaven", "title": "Poly Haven", "mode": "direct", "category": "Textures", "license": "Creative Commons CC0", "licenseSafety": 10, "notes": "CC0 textures, HDRIs, and models" },
     { "id": "openclipart", "title": "OpenClipart", "mode": "direct", "category": "2D", "license": "Creative Commons CC0", "licenseSafety": 10, "notes": "Public-domain SVG/2D" },
@@ -17,7 +17,7 @@
     { "id": "itch-vfx", "title": "itch.io VFX", "mode": "assisted", "category": "VFX", "license": "Per-item license", "licenseSafety": 6.5, "notes": "Free VFX entries; per-item terms" },
     { "id": "pixabay-audio", "title": "Pixabay Audio", "mode": "assisted", "category": "Audio", "license": "Pixabay Content License", "licenseSafety": 7.8, "notes": "Pixabay music/SFX pages" },
     { "id": "quaternius", "title": "Quaternius", "mode": "assisted", "category": "3D", "license": "Creative Commons CC0", "licenseSafety": 10, "notes": "CC0 3D packs; consented Chrome/Google Drive flow verified on Simple Nature Pack (other packs may require manual review)" },
-    { "id": "kaykit", "title": "KayKit", "mode": "assisted", "category": "3D", "license": "Creative Commons CC0", "licenseSafety": 10, "notes": "CC0 3D packs on itch" },
+    { "id": "kaykit", "title": "KayKit", "mode": "direct", "category": "3D", "license": "Creative Commons CC0", "licenseSafety": 10, "notes": "CC0 low-poly props and rigged, animated characters, fetched per model from the creator's GitHub repositories" },
     { "id": "sharetextures", "title": "ShareTextures", "mode": "assisted", "category": "Textures", "license": "Creative Commons CC0", "licenseSafety": 10, "notes": "CC0 textures" },
     { "id": "devassets", "title": "DevAssets", "mode": "assisted", "category": "2D", "license": "Permissive/free, verify exact item", "licenseSafety": 8, "notes": "Free 2D/game assets" },
     { "id": "pixel-frog", "title": "Pixel Frog", "mode": "assisted", "category": "2D", "license": "Permissive/free, verify exact item", "licenseSafety": 8, "notes": "Pixel art packs" },

@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { fetchText } from "./http.js";
+import { inferCategory, subjectTokens, synonymsOf } from "./intent.js";
 import { containsToken, slugify, tokenize } from "./util.js";
 const BASE_URL = "https://kenney.nl";
 const MAX_INDEX_PAGES = 20;
@@ -122,21 +123,27 @@ async function hydrateAsset(asset) {
         reason: "reason" in asset ? asset.reason : "Direct asset URL",
         previewUrl,
         fileCount,
-        downloadUrl: downloadUrl ? absoluteUrl(downloadUrl) : undefined
+        downloadUrl: downloadUrl ? absoluteUrl(downloadUrl) : undefined,
+        // Kenney issues a signed link behind its "continue without donating" step,
+        // so a pack is retrievable only through the consented browser route.
+        ...(downloadUrl ? {} : { manualDownload: true, downloadMode: "assisted", assistInstructions: ["Open the pack page, choose Download, then 'Continue without donating' (or donate).", "Keep the CC0 licence text from the pack beside the files."] })
     };
 }
 function scoreAsset(asset, tokens, request) {
-    const haystack = `${asset.title} ${asset.id} ${asset.category} ${asset.tags.join(" ")} ${asset.series.join(" ")}`.toLowerCase();
+    const haystack = `${asset.title} ${asset.id} ${asset.tags.join(" ")} ${asset.series.join(" ")}`.toLowerCase();
     let score = 0;
     const matches = [];
-    for (const token of tokens) {
+    // A pack matches on its subject. Sharing a media type ("3D") with the request is not a match.
+    const subjects = subjectTokens(request);
+    const wanted = subjects.length ? [...new Set(subjects.flatMap((token) => [token, ...synonymsOf(token)]))] : tokens;
+    for (const token of wanted) {
         if (containsToken(haystack, token)) {
             score += containsToken(asset.title.toLowerCase(), token) ? 8 : 4;
             matches.push(token);
         }
     }
     const inferredCategory = inferCategory(request);
-    if (inferredCategory !== "Unknown" && asset.category === inferredCategory)
+    if (score > 0 && inferredCategory !== "Unknown" && asset.category === inferredCategory)
         score += 5;
     const requestLower = request.toLowerCase();
     if (requestLower.includes("tree") || requestLower.includes("forest") || requestLower.includes("nature")) {
@@ -145,10 +152,10 @@ function scoreAsset(asset, tokens, request) {
                 score += 3;
         }
     }
-    if (requestLower.includes("ui") && (haystack.includes("ui") || haystack.includes("interface")))
+    if (/\bui\b/.test(requestLower) && (/\bui\b/.test(haystack) || haystack.includes("interface")))
         score += 6;
-    if (requestLower.includes("vehicle") || requestLower.includes("car")) {
-        if (haystack.includes("transport") || haystack.includes("car"))
+    if (/\b(vehicle|vehicles|car|cars)\b/.test(requestLower)) {
+        if (haystack.includes("transport") || /\bcars?\b/.test(haystack))
             score += 6;
     }
     if (score === 0 && tokens.length === 0)
@@ -160,29 +167,7 @@ function scoreAsset(asset, tokens, request) {
         reason: matches.length > 0 ? `Matched: ${matches.join(", ")}` : "Matched inferred category/source hints"
     };
 }
-export function inferCategory(request) {
-    const lower = request.toLowerCase();
-    if (/\b(animation|animations|mocap|motion|rig|rigged|walk cycle|run cycle|fbx animation|bvh)\b/.test(lower))
-        return "Animation";
-    if (/\b(vfx|visual effect|particle|particles|spell effect|flipbook)\b/.test(lower))
-        return "VFX";
-    if (/\b(music|song|soundtrack|bgm|loop|loops|theme|chiptune)\b/.test(lower))
-        return "Music";
-    if (/\b(3d|model|mesh|fbx|glb|gltf|obj)\b/.test(lower))
-        return "3D";
-    if (/\b(audio|sound|sfx|wav|ogg)\b/.test(lower))
-        return "Audio";
-    if (/\b(texture|textures|material|materials|pbr|tileable)\b/.test(lower))
-        return "Textures";
-    if (/\b(ui|button|interface|hud|menu)\b/.test(lower))
-        return "UI";
-    if (/\b(2d|sprite|spritesheet|png|pixel|tilemap)\b/.test(lower))
-        return "2D";
-    // Engine compatibility is not the requested media type.
-    if (/\b(roblox|unity|unreal|godot)\b/.test(lower))
-        return "3D";
-    return "Unknown";
-}
+export { inferCategory };
 function parseCategory(value) {
     if (value === "2D")
         return "2D";

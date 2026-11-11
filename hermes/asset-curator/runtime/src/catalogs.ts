@@ -1,5 +1,6 @@
 import { fetchText } from "./http.js";
 import type { AssetSearchOptions, AssetSearchResult } from "./types.js";
+import { subjectTokens } from "./intent.js";
 import { slugify, tokenize } from "./util.js";
 
 type IconSource = "game-icons" | "lucide" | "tabler";
@@ -20,21 +21,27 @@ export function parseIconTree(data: unknown, source: IconSource): IndexedIcon[] 
   });
 }
 
-export function rankCatalog<T>(entries: T[], request: string, text: (entry: T) => string, limit: number): T[] {
+export function rankCatalog<T>(entries: T[], request: string, text: (entry: T) => string, limit: number, bonus?: (entry: T) => number): T[] {
   const generic = new Set(["icon", "icons", "svg", "ui", "font", "fonts", "typeface", "typography", "minimal", "simple", "outline", "game"]);
-  const words = tokenize(request).filter((word) => !generic.has(word));
+  const subjects = subjectTokens(request).filter((word) => !generic.has(word));
+  const words = subjects.length ? subjects : tokenize(request).filter((word) => !generic.has(word));
   const phrase = words.join(" ");
   return entries.map((entry) => {
     const label = text(entry).toLowerCase().replace(/[-_]+/g, " ");
     const terms = new Set(tokenize(label));
     const hits = words.filter((word) => terms.has(word)).length;
-    return { entry, score: (phrase && label === phrase ? 100 : phrase && label.includes(phrase) ? 40 : 0) + hits * 5 };
+    // "heart" must beat "book heart" for a heart request: exact names first, extra words cost.
+    const exact = words.some((word) => label === word) ? 60 : 0;
+    const extra = hits ? label.split(" ").filter((term) => term && !words.includes(term)).length : 0;
+    return { entry, score: (phrase && label === phrase ? 100 : phrase && label.includes(phrase) ? 40 : 0) + exact + hits * 5 - extra + (bonus?.(entry) ?? 0) };
   }).filter((item) => !words.length || item.score > 0).sort((a, b) => b.score - a.score).slice(0, limit).map((item) => item.entry);
 }
 
 export async function searchIconCatalog(source: IconSource, options: AssetSearchOptions): Promise<AssetSearchResult[]> {
   if (options.category && !["Unknown", "UI", "2D", "VFX"].includes(options.category)) return [];
   if (!options.source && options.category !== "UI" && !/\b(icon|icons|svg|ui|button|hud|interface)\b/i.test(options.request)) return [];
+  // A font request is not an icon request, whatever words its description shares with icon names.
+  if (!options.source && /\b(font|fonts|typeface|typography)\b/i.test(options.request) && !/\bicons?\b/i.test(options.request)) return [];
   const meta = ICON_REPOS[source];
   const data = JSON.parse(await fetchText(`https://api.github.com/repos/${meta.repo}/git/trees/${meta.branch}?recursive=1`));
   const icons = rankCatalog(parseIconTree(data, source), options.request, (icon) => icon.name, Math.min(options.limit ?? 8, 12));
@@ -57,6 +64,12 @@ export async function searchIconCatalog(source: IconSource, options: AssetSearch
 }
 
 type FontFamily = { family: string; category?: string; isOpenSource?: boolean; popularity?: number };
+const FONT_STYLE_HINTS: [RegExp, string[]][] = [
+  [/\b(blackletter|black-letter|gothic|fraktur|medieval|old english)\b/i, ["UnifrakturMaguntia", "UnifrakturCook", "Pirata One", "Grenze Gotisch", "New Rocker", "Metal Mania", "Jacquard 24", "Jacquarda Bastarda 9", "Texturina", "Manufacturing Consent"]],
+  [/\b(pixel|8[\s-]?bit|16[\s-]?bit|retro|arcade|bitmap)\b/i, ["Press Start 2P", "VT323", "Silkscreen", "Pixelify Sans", "Tiny5", "Jersey 10", "DotGothic16", "Micro 5"]],
+  [/\b(handwritten|handwriting|script|cursive)\b/i, ["Caveat", "Patrick Hand", "Shadows Into Light", "Indie Flower", "Kalam"]],
+  [/\b(sci-?fi|futuristic|space|tech)\b/i, ["Orbitron", "Audiowide", "Exo 2", "Rajdhani", "Oxanium"]]
+];
 export function parseFontCatalog(text: string): FontFamily[] {
   const data = JSON.parse(text.replace(/^\)\]\}'\s*/, "")) as { familyMetadataList?: FontFamily[] };
   if (!Array.isArray(data.familyMetadataList)) throw new Error("Google Fonts catalog is missing family metadata");
@@ -66,7 +79,9 @@ export function parseFontCatalog(text: string): FontFamily[] {
 export async function searchFontCatalog(options: AssetSearchOptions): Promise<AssetSearchResult[]> {
   if (!/\b(font|fonts|typeface|typography|text)\b/i.test(options.request) && options.source !== "google-fonts") return [];
   const catalog = parseFontCatalog(await fetchText("https://fonts.google.com/metadata/fonts"));
-  const families = rankCatalog(catalog, options.request, (family) => `${family.family} ${family.category ?? ""}`, Math.min(options.limit ?? 5, 8));
+  // Google's metadata has no "blackletter" or "pixel" class, so name the known families.
+  const hinted = new Set(FONT_STYLE_HINTS.filter(([pattern]) => pattern.test(options.request)).flatMap(([, names]) => names));
+  const families = rankCatalog(catalog, options.request, (family) => `${family.family} ${family.category ?? ""}${hinted.has(family.family) ? " " + options.request : ""}`, Math.min(options.limit ?? 5, 8), (family) => hinted.has(family.family) ? 50 : 0);
   const settled = await Promise.allSettled(families.map(async (family) => {
     const dir = slugify(family.family).replace(/-/g, "");
     let files: { name: string; download_url: string }[] | undefined;
