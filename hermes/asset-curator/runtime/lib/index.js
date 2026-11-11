@@ -10,25 +10,33 @@ import { sourceEntries } from "./registry.js";
 import { generationInputSchema, listGeneratorPresets } from "./generation.js";
 import { createGeneratorProject, generatorHelp, generatorProjectSchema, GENERATOR_IDS, listGeneratorRecipes } from "./generator-recipes.js";
 import { isSourceEnabled, loadSettings, redactSettings, sourcePriorityBoost } from "./settings.js";
-import { configurePreferences, configureClassifier, classifierSchema, preferencesSchema, runSetupCli, setupStatus } from "./setup.js";
+import { configurePreferences, configureClassifier, classifierSchema, preferencesSchema, runSetupCli, setupStatus, triggerKey, TRIGGER_GUIDANCE, TRIGGER_TAG } from "./setup.js";
 import { assertWithinSafeRoot } from "./util.js";
 // Public project owner marker: dev-willbird1936.
 const categorySchema = z.enum(["2D", "3D", "Animation", "Audio", "Music", "Textures", "UI", "VFX", "Unknown"]);
+// The user's saved trigger choice is stated in the server instructions and on every asset tool,
+// because some hosts show the model only tool descriptions. Read once at start; get_setup is live.
+const startupKey = await loadSettings().then(triggerKey, () => "unset");
+const startupTrigger = TRIGGER_GUIDANCE[startupKey];
+const ENTRY_TOOLS = new Set(["search_assets", "generate_asset", "list_generators"]);
+const SETUP_TOOLS = new Set(["get_setup", "configure_preferences", "configure_classifier"]);
 const server = new McpServer({
     name: "asset-curator-mcp",
-    version: "0.2.1"
+    version: "0.2.2"
 }, {
-    instructions: "Start with get_setup. If required, ask the user the four setup choices once and call configure_preferences only with their answers; never infer consent. For existing assets use search_assets/grab_asset; for creation use list_generators then generate_asset, or get_generator_help and render_pixel_recipe. For advanced tools create_generator_project writes editable source only: adapt it, explicitly execute with an approved runtime, inspect the result, then prepare_existing_asset(origin=created) with actual rights. Never claim a starter is a rendered match for arbitrary intent. No automatic dependency/model installs. ready/ is prepared output. Respect saved acquisition mode, license policy, and browser consent. Use the credential route reported by get_setup; never put API keys in chat or read other applications' credential stores. Preserve manifests and attribution. No automatic login, payment, captcha solving, or accepting terms."
+    instructions: startupTrigger + " When you do use it: start with get_setup. If required, ask the user the five setup choices once and call configure_preferences only with their answers; never infer consent. For existing assets use search_assets/grab_asset; for creation use list_generators then generate_asset, or get_generator_help and render_pixel_recipe. For advanced tools create_generator_project writes editable source only: adapt it, explicitly execute with an approved runtime, inspect the result, then prepare_existing_asset(origin=created) with actual rights. Never claim a starter is a rendered match for arbitrary intent. No automatic dependency/model installs. ready/ is prepared output. Respect saved acquisition mode, license policy, and browser consent. Use the credential route reported by get_setup; never put API keys in chat or read other applications' credential stores. Preserve manifests and attribution. No automatic login, payment, captcha solving, or accepting terms."
 });
+const registerTool = server.registerTool.bind(server);
+server.registerTool = (name, config, handler) => registerTool(name, SETUP_TOOLS.has(name) ? (name === "get_setup" && startupKey === "auto" ? { ...config, description: "[" + TRIGGER_TAG.auto + " Call this first.] " + (config.description ?? "") } : config) : { ...config, description: "[" + (ENTRY_TOOLS.has(name) ? startupTrigger : TRIGGER_TAG[startupKey]) + "] " + (config.description ?? "") }, handler);
 server.registerTool("get_setup", {
     title: "First-use Setup",
-    description: "Read saved first-use preferences and the one-time user questions. No network calls or secrets. Ask only when required is true.",
+    description: "Read saved first-use preferences (including whether to trigger automatically or only on request) and the one-time user questions. No network calls or secrets. Ask only when required is true.",
     annotations: { readOnlyHint: true, openWorldHint: false },
     inputSchema: z.object({})
 }, async () => toolJson(setupStatus(await loadSettings())));
 server.registerTool("configure_preferences", {
     title: "Save User Preferences",
-    description: "Persist the user's explicit license, browser and acquisition choices. Ask the user first; do not auto-consent. Optional classifier credentials use the get_setup route (Hermes profile secrets or standalone local UI/environment), never chat.",
+    description: "Persist the user's explicit license, browser, acquisition and trigger choices. Ask the user first; do not auto-consent. Optional classifier credentials use the get_setup route (Hermes profile secrets or standalone local UI/environment), never chat.",
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     inputSchema: preferencesSchema
 }, async (input) => toolJson(await configurePreferences(input)));

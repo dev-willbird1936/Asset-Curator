@@ -10,7 +10,7 @@ import { ADVISOR_PROVIDERS, MODEL_PROVIDERS } from "./models.js";
 const CATEGORIES = ["2D", "3D", "Animation", "Audio", "Music", "Textures", "UI", "VFX", "Unknown"];
 const REGISTRY = sourceRegistry();
 export const DEFAULT_SETTINGS = {
-    preferences: { completed: false, licensePolicy: "safe", browserEnabled: false, acquisitionMode: "both" },
+    preferences: { completed: false, licensePolicy: "safe", browserEnabled: false, acquisitionMode: "both", triggerMode: "auto" },
     assetAdvisor: {
         provider: "none",
         customProviderModel: "",
@@ -104,7 +104,9 @@ export function normalizeSettings(input) {
             completed: validPreferences ? preferences.completed === true : false,
             licensePolicy: preferences?.licensePolicy === "any" ? "any" : "safe",
             browserEnabled: preferences?.browserEnabled === true,
-            acquisitionMode: ["existing", "create", "both"].includes(preferences?.acquisitionMode ?? "") ? preferences.acquisitionMode : "both"
+            acquisitionMode: ["existing", "create", "both"].includes(preferences?.acquisitionMode ?? "") ? preferences.acquisitionMode : "both",
+            // Settings saved before 0.2.2 have no trigger choice; they keep the previous agent-decides behaviour.
+            triggerMode: preferences?.triggerMode === "on-request" ? "on-request" : "auto"
         },
         assetAdvisor: {
             ...DEFAULT_SETTINGS.assetAdvisor,

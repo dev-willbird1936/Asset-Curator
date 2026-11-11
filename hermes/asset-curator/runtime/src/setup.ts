@@ -9,8 +9,23 @@ import type { AssetGrabberSettings } from "./types.js";
 export const preferencesSchema = z.object({
   licensePolicy: z.enum(["safe", "any"]).describe("safe = known project-usable licenses; any = include restrictive/unknown licenses, still record provenance. Never bypasses access controls."),
   browserEnabled: z.boolean().describe("Explicit user consent to browser-assisted retrieval if ordinary downloads fail. Does not authorize login, captcha solving, payment or accepting terms."),
-  acquisitionMode: z.enum(["existing", "create", "both"]).describe("Existing assets, deterministic code generation, or both (recommended).")
+  acquisitionMode: z.enum(["existing", "create", "both"]).describe("Existing assets, deterministic code generation, or both (recommended)."),
+  triggerMode: z.enum(["auto", "on-request"]).optional().describe("auto = use the plugin whenever the agent judges a task needs asset files (recommended); on-request = only when the user names Asset Curator or directly asks for an asset. Omit to keep the saved choice.")
 }).strict();
+
+export const TRIGGER_GUIDANCE = {
+  auto: "AUTO MODE IS ON (the user's saved choice; they already said yes, so do not ask or offer first). Writing a game, 3D scene, website, app screen, video or presentation is NOT a code-only task: before you write its code, use Asset Curator to get the real media it needs (at least the main character or prop models and key sounds for a game; icons, fonts or images for a site), then load them by the returned file paths. Do this even when the user only asks for the code and even if you cannot save files yourself. Also use it for any request for a model, sprite, texture, icon, font, sound or music. 'It works without assets' is not a reason to skip; do not settle for placeholder shapes, emoji or 'you can add assets later'. Skip only when the task involves no media at all (bug fixes, explanations, documents, planning, refactors) or the user says not to use assets or plugins.",
+  "on-request": "Trigger mode ON-REQUEST (the user's saved choice): do NOT call any Asset Curator tool on your own initiative. Use it only when the user names Asset Curator or this plugin, or directly asks you to find, download, grab or generate an asset file. When a larger task (such as building a game) would merely benefit from assets, do the task without these tools and mention once, in one sentence, that Asset Curator can supply assets if they ask.",
+  unset: "Setup is not finished. The first time a task needs an asset file, call get_setup, ask the user its questions once, then configure_preferences. Do not call it for work that needs no media file."
+} as const;
+/** Short reminder for tools that are not an entry point, to keep tool listings small. */
+export const TRIGGER_TAG = { auto: "AUTO MODE IS ON: when you start building a game, 3D scene, website, video or anything seen or heard, get its assets with search_assets or generate_asset before writing code, without being asked.", "on-request": "Trigger mode ON-REQUEST: only when the user named this plugin or directly asked for an asset.", unset: "Setup not finished: call get_setup first." } as const;
+export function triggerKey(settings: AssetGrabberSettings): keyof typeof TRIGGER_GUIDANCE {
+  return settings.preferences.completed ? settings.preferences.triggerMode : "unset";
+}
+export function triggerGuidance(settings: AssetGrabberSettings): string {
+  return settings.preferences.completed ? TRIGGER_GUIDANCE[settings.preferences.triggerMode] : TRIGGER_GUIDANCE.unset;
+}
 
 export function setupStatus(settings: AssetGrabberSettings) {
   return {
@@ -18,6 +33,7 @@ export function setupStatus(settings: AssetGrabberSettings) {
     credentialMode: environmentCredentialsOnly() ? "Hermes profile environment only" : "standalone local settings/environment",
     settingsPath: resolveSettingsPath(),
     preferences: settings.preferences,
+    triggerGuidance: triggerGuidance(settings),
     instructions: settings.preferences.completed
       ? "Preferences are saved. Do not ask again unless the user requests a change."
       : environmentCredentialsOnly() ? "Ask the policy choices ONCE per active Hermes profile, then configure_preferences. Do not infer consent. Choose the optional provider with configure_classifier. Classifier keys come only through Hermes approved profile/secret settings, never chat, local key files or CLI subscription stores." : "Ask the user these choices ONCE, then call configure_preferences with their answers. Do not choose on their behalf. Optional API keys should be entered in the local settings UI or environment, not chat. CLI alternative: asset-grabber-mcp --setup.",
@@ -25,6 +41,7 @@ export function setupStatus(settings: AssetGrabberSettings) {
       { field: "licensePolicy", question: "Only known project-usable licenses (safe, recommended), or include assets regardless of license (any)?", choices: ["safe", "any"], note: "Safe is a filter, not a legal guarantee; attribution and third-party rights still apply." },
       { field: "browserEnabled", question: "Permit browser-assisted retrieval when a normal download is unavailable?", choices: [false, true], note: "No login, payment, captcha solving or accepting terms automatically." },
       { field: "acquisitionMode", question: "Grab existing assets, create assets through code, or both (recommended)?", choices: ["existing", "create", "both"] },
+      { field: "triggerMode", question: "Should the agent use Asset Curator automatically whenever it judges a task needs assets (auto, recommended), or only when you name it or directly ask for an asset (on-request)?", choices: ["auto", "on-request"], note: "Auto never changes your license, browser or acquisition choices. A change applies to tool descriptions from the next session." },
       { field: "assetAdvisor", question: environmentCredentialsOnly() ? "Optionally connect a classifier through Hermes profile settings? Default is none; use ASSET_GRABBER_ADVISOR_PROVIDER plus its approved API-key secret, not chat or local files." : "Optionally connect a decision/classifier model? Choose none or configure a provider and key in the local settings UI.", optional: true }
     ]
   };
@@ -33,7 +50,7 @@ export function setupStatus(settings: AssetGrabberSettings) {
 export async function configurePreferences(input: z.input<typeof preferencesSchema>) {
   const preferences = preferencesSchema.parse(input);
   const settings = await loadSettings();
-  const saved = await saveSettings({ ...settings, preferences: { ...preferences, completed: true } });
+  const saved = await saveSettings({ ...settings, preferences: { ...preferences, triggerMode: preferences.triggerMode ?? settings.preferences.triggerMode, completed: true } });
   return { ...setupStatus(saved), settings: redactSettings(saved) };
 }
 
@@ -82,6 +99,7 @@ export async function runSetupCli(): Promise<void> {
     const licensePolicy = await choose("License policy", ["safe", "any"], "safe") as "safe" | "any";
     const browserEnabled = await choose("Allow browser-assisted retrieval?", ["y", "n"], "n") === "y";
     const acquisitionMode = await choose("Asset acquisition", ["existing", "create", "both"], "both") as "existing" | "create" | "both";
+    const triggerMode = await choose("Use automatically when a task needs assets, or only on request?", ["auto", "on-request"], "auto") as "auto" | "on-request";
     const provider = await choose("Optional classifier provider", ADVISOR_PROVIDERS, "none") as AssetGrabberSettings["assetAdvisor"]["provider"];
     const advisor = { ...settings.assetAdvisor, provider, allowNetworkAiRanking: provider !== "none" };
     if (provider !== settings.assetAdvisor.provider) {
@@ -106,7 +124,7 @@ export async function runSetupCli(): Promise<void> {
         advisor.apiKey = key;
       }
     }
-    await saveSettings({ ...settings, preferences: { licensePolicy, browserEnabled, acquisitionMode, completed: true }, assetAdvisor: advisor });
+    await saveSettings({ ...settings, preferences: { licensePolicy, browserEnabled, acquisitionMode, triggerMode, completed: true }, assetAdvisor: advisor });
     console.log(`Saved ${resolveSettingsPath()}. Ready for agent use.`);
   } finally {
     rl.close();

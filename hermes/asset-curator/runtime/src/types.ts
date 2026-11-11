@@ -24,6 +24,8 @@ export type AssetPreferences = {
   licensePolicy: "safe" | "any";
   browserEnabled: boolean;
   acquisitionMode: "existing" | "create" | "both";
+  /** auto = the agent decides when a task needs assets; on-request = only when the user names the plugin or directly asks for an asset. */
+  triggerMode: "auto" | "on-request";
 };
 
 export type AssetGrabberSettings = {

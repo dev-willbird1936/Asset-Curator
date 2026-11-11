@@ -1,6 +1,6 @@
 # Release validation
 
-Version 0.2.1. Hermes 0.23.1, Windows, Node 24. Run on 11 November 2026.
+Version 0.2.2. Hermes 0.23.1, Windows, Node 24. Run on 11 and 12 November 2026.
 
 ## Package checks
 
@@ -18,6 +18,21 @@ Version 0.2.1. Hermes 0.23.1, Windows, Node 24. Run on 11 November 2026.
 | Same behaviour through the installed package over MCP | 10 of 10 |
 
 "As expected" includes honest failures: nonsense, subjectless and unanswerable requests must return nothing. Examples of delivered files: a rigged KayKit knight with 76 animation clips, a Poly Haven barrel as one self-contained GLB, a blackletter font with its licence, an exact `heart.svg`.
+
+## Trigger choice (0.2.2, live Hermes conversations, Sonnet 5.5 requested)
+
+Twenty single conversations, one fresh profile each. Two were judgement calls and not graded.
+
+| Mode | Should use the plugin | Should leave it alone |
+| --- | --- | --- |
+| on-request | 4 of 4 (named plugin, "find me", "generate", named mid-task) | 4 of 4 (game build, title screen, bug fix, advice) |
+| auto | 3 of 5 (title music and font, icons, video sound effect) | 5 of 5 (bug fix, explanation, pitch, refactor, "don't use plugins") |
+
+Known gap: in auto mode, "write the main game file" in English and in Spanish was treated as a code-only task and the plugin was not used. The test agent had no file tools, which may contribute. One conversation per case is not a statistic.
+
+## Four-way game comparison
+
+The same dungeon-game brief was run in Hermes with no plugin, existing-only, create-only and both. All four returned a playable page that an automated keyboard playthrough won without console errors. Play them at https://dev-willbird1936.github.io/Asset-Curator/. The create-only run shown is a second run after a test-harness fault. The plugin ran version 0.2.1 for these.
 
 ## Limits
 

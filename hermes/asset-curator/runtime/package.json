@@ -1,6 +1,6 @@
 {
   "name": "asset-grabber-mcp",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Policy-aware MCP asset curation and code creation: search, download, prepare and generate with provenance.",
   "type": "module",
   "license": "MIT",

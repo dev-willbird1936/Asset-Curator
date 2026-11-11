@@ -14,7 +14,7 @@ const CATEGORIES: AssetCategory[] = ["2D", "3D", "Animation", "Audio", "Music", 
 const REGISTRY = sourceRegistry();
 
 export const DEFAULT_SETTINGS: AssetGrabberSettings = {
-  preferences: { completed: false, licensePolicy: "safe", browserEnabled: false, acquisitionMode: "both" },
+  preferences: { completed: false, licensePolicy: "safe", browserEnabled: false, acquisitionMode: "both", triggerMode: "auto" },
   assetAdvisor: {
     provider: "none",
     customProviderModel: "",
@@ -106,7 +106,9 @@ export function normalizeSettings(input: Partial<AssetGrabberSettings>): AssetGr
       completed: validPreferences ? preferences.completed === true : false,
       licensePolicy: preferences?.licensePolicy === "any" ? "any" : "safe",
       browserEnabled: preferences?.browserEnabled === true,
-      acquisitionMode: ["existing", "create", "both"].includes(preferences?.acquisitionMode ?? "") ? preferences!.acquisitionMode : "both"
+      acquisitionMode: ["existing", "create", "both"].includes(preferences?.acquisitionMode ?? "") ? preferences!.acquisitionMode : "both",
+      // Settings saved before 0.2.2 have no trigger choice; they keep the previous agent-decides behaviour.
+      triggerMode: preferences?.triggerMode === "on-request" ? "on-request" : "auto"
     },
     assetAdvisor: {
       ...DEFAULT_SETTINGS.assetAdvisor,
