@@ -21,14 +21,20 @@ Version 0.2.2. Hermes 0.23.1, Windows, Node 24. Run on 11 and 12 November 2026.
 
 ## Trigger choice (0.2.2, live Hermes conversations, Sonnet 5.5 requested)
 
-Twenty single conversations, one fresh profile each. Two were judgement calls and not graded.
+One fresh profile and conversation per case; two judgement-call cases are not graded. The main run gave the agent Hermes' file and skills tools and a small Three.js project as its working folder.
 
 | Mode | Should use the plugin | Should leave it alone |
 | --- | --- | --- |
 | on-request | 4 of 4 (named plugin, "find me", "generate", named mid-task) | 4 of 4 (game build, title screen, bug fix, advice) |
-| auto | 3 of 5 (title music and font, icons, video sound effect) | 5 of 5 (bug fix, explanation, pitch, refactor, "don't use plugins") |
+| auto | 5 of 5 (game build in English and Spanish, title music and font, icons, video sound effect) | 5 of 5 (bug fix, explanation, pitch, refactor, "don't use plugins") |
 
-Known gap: in auto mode, "write the main game file" in English and in Spanish was treated as a code-only task and the plugin was not used. The test agent had no file tools, which may contribute. One conversation per case is not a statistic.
+- The two game builds ("write the main game file", which never mentions assets) triggered in all three realistic runs of each.
+- An earlier run without file tools scored 16 of 18. Unable to save files, the agent pasted self-contained code and skipped assets for both game builds.
+- In these trigger runs a test-harness fault declined each conversation's first write-capable call. Grading counts attempted calls, so the verdicts stand. The fault was fixed for the end-to-end runs below.
+
+End to end in auto mode, the agent searched for, downloaded and generated assets for both game builds, then wrote the game. The files stayed in the plugin's own asset folder: by default the plugin writes only inside that folder, unless `ASSET_GRABBER_SAFE_ROOT` is set to a folder that contains the project. The test agent had no terminal to copy them, so neither game ended up loading them; the agent said so. (The test operator also declined direct writes into the project, which the plugin refuses by default anyway.)
+
+One conversation per case is not a statistic. Other models were not tested.
 
 ## Four-way game comparison
 
