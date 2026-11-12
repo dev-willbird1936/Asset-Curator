@@ -164,11 +164,14 @@ export async function searchAssetsWithDiagnostics(options: AssetSearchOptions): 
     count: hidden.length, sources: [...new Set(hidden.map((result) => result.source))],
     note: "These sources matched but need browser-assisted or manual retrieval. Ask the user to enable browser assistance, or repeat with includeManualResults to see them."
   } : undefined;
-  // Style taken from the project (not the request): declared conflicts are set aside, not ranked.
-  const offStyleResults = styleSource === "project" ? relevant.filter((result) => result.style?.conflicting && passesLicenseSettings(settings, result, { includeManualResults })) : [];
+  // Results whose source declares a style that conflicts with the wanted one (named in the request,
+  // or read from the project) are set aside, not ranked. They stay listed in offStyle.
+  const offStyleResults = styleSource !== "none" ? relevant.filter((result) => result.style?.conflicting && passesLicenseSettings(settings, result, { includeManualResults })) : [];
   const offStyle = offStyleResults.length ? {
     count: offStyleResults.length, examples: offStyleResults.slice(0, 4).map((result) => `${result.source}: ${result.title} (${result.style!.conflicting})`),
-    note: `These match the subject but their source declares a style that conflicts with the project's ${styles.join(", ")} art. Name a style in the request if you want them anyway.`
+    note: styleSource === "project"
+      ? `These match the subject but their source declares a style that conflicts with the project's ${styles.join(", ")} art. Name a style in the request if you want them anyway.`
+      : `These match the subject but their source declares a style that conflicts with the requested ${styles.join(", ")} style. Offer them only if the user accepts a different style.`
   } : undefined;
   const rankedResults = relevant
     .filter((result) => !offStyleResults.includes(result))
@@ -179,7 +182,9 @@ export async function searchAssetsWithDiagnostics(options: AssetSearchOptions): 
     }))
     .sort((a, b) => effectiveScore(b) - effectiveScore(a) || Number(Boolean(a.manualDownload)) - Number(Boolean(b.manualDownload)))
     .slice(0, effectiveLimit);
-  const relevance = await assessAssetRelevance(options.request, rankedResults, settings, options.useAdvisor ?? settings.assetAdvisor.allowNetworkAiRanking);
+  // The optional classifier judges style too, so tell it the project's style when the request names none.
+  const judgedRequest = styleSource === "project" ? `${options.request} (the project's art style is ${styles.join(", ")})` : options.request;
+  const relevance = await assessAssetRelevance(judgedRequest, rankedResults, settings, options.useAdvisor ?? settings.assetAdvisor.allowNetworkAiRanking);
   return {
     results: relevance.results,
     diagnostics,
@@ -189,21 +194,23 @@ export async function searchAssetsWithDiagnostics(options: AssetSearchOptions): 
     ...(projectStyle ? { projectStyle } : {}),
     ...(offStyle ? { offStyle } : {}),
     withheld,
-    nextSteps: nextSteps(relevance.results, category, styles, Boolean(withheld), mode, projectStyle)
+    nextSteps: nextSteps(relevance.results, category, styles, Boolean(withheld), mode, projectStyle, offStyleResults.length)
   };
 }
 
 /** Honest routes when a search is empty or its style is unproven. Suggestions only: nothing here is a match. */
-function nextSteps(results: AssetSearchResult[], category: AssetCategory, styles: string[], withheld: boolean, mode: string, project?: import("./project-style.js").ProjectStyle): string[] | undefined {
+function nextSteps(results: AssetSearchResult[], category: AssetCategory, styles: string[], withheld: boolean, mode: string, project?: import("./project-style.js").ProjectStyle, offStyleCount = 0): string[] | undefined {
   const steps: string[] = [];
+  const noStyleMatch = "Nothing in a matching style was found (see offStyle for subject matches in other styles). Do not substitute one of those without telling the user.";
   if (project?.styles.includes("pixel") && mode !== "existing" && !["Audio", "Music"].includes(category) && (!results.length || results.every((r) => r.style && (r.style.unconfirmed.length || r.style.conflicting)))) {
-    if (!results.length) steps.push("Nothing in a matching style was found (see offStyle for subject matches in other styles). Do not substitute one of those without telling the user.");
+    if (!results.length) steps.push(noStyleMatch);
     steps.push(`This project is pixel art${project.codeGeneratedArt ? " drawn in code" : ""}. To match it, draw the asset with render_pixel_recipe${project.typicalSpriteSize ? ` at about ${project.typicalSpriteSize}px` : ""} using the project's own colours (projectStyle.palette)${project.codeGeneratedArt ? ", or draw it in code the way the project does" : ""}.`);
   }
   const unproven = results.length > 0 && results.every((result) => result.style && (result.style.unconfirmed.length || result.style.conflicting));
   if (results.length && !unproven) return undefined;
   if (unproven) steps.push(`No result's metadata confirms the requested style (${styles.join(", ")}). Look at each result's previewUrl or source page before presenting it as a match, or tell the user no style match was found.`);
-  if (!results.length) steps.push("No licensed match was found. Say so rather than substituting a different asset. Try simpler English subject words, or pass category explicitly if the inferred one is wrong.");
+  if (!results.length && offStyleCount) { if (!steps.includes(noStyleMatch)) steps.push(noStyleMatch); }
+  else if (!results.length) steps.push("No licensed match was found. Say so rather than substituting a different asset. Try simpler English subject words, or pass category explicitly if the inferred one is wrong.");
   if (withheld) steps.push("Matching packs exist on browser-assisted sources (see withheld). They need the user's saved browser consent.");
   if (mode !== "existing") {
     if (category === "Music") steps.push("Create instead: generate_asset with preset zzfxm-music and your own song data gives an editable tracker composition (read get_generator_help zzfxm first). It is synthesized chiptune, not a recording.");

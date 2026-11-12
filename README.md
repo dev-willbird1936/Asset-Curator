@@ -35,7 +35,7 @@ Requires Hermes >=0.23.1 and Node >=20.18.1/npm. Windows verified; macOS/Linux n
 
 ## Verification and honest limits
 
-Version 0.2.5. The development suite passes 20 test programs. A live quality pass ran 44 edge-case searches, 18 end-to-end grabs and 10 checks through the installed package; see VALIDATION.md. Hermes 0.23.1 Doctor, actual 16-tool MCP discovery, normal write denial and restart recovery passed in an isolated profile.
+Version 0.2.6. The development suite passes 20 test programs. A live quality pass ran 44 edge-case searches, 18 end-to-end grabs and 10 checks through the installed package; see VALIDATION.md. Hermes 0.23.1 Doctor, actual 16-tool MCP discovery, normal write denial and restart recovery passed in an isolated profile.
 
 Sixteen real Hermes requests produced seven visually matched results, three partial matches, three unlistened audio outputs and three unfulfilled requests. One authentication interruption was continued separately and retained; these are not statistical quality estimates. The new barrel preset was additionally generated and rendered outside that frozen cohort.
 

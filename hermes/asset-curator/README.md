@@ -2,7 +2,7 @@
 
 **Find a usable asset or create it from code, with policy and provenance.** This is a real local MCP application, not a prompt-only plugin: indexed catalogs, bounded downloads/extraction, optional browser retrieval, optional relevance checks, programmable pixel art, parameter synthesis and editable code projects.
 
-Version: **0.2.5**. Compatibility target: **Hermes >=0.23.1**, Node >=20.18.1 with npm (locked Cheerio/Undici floor). Verified on Windows with Node 24.16.0 and Hermes' PM-managed Node 26.12.1; macOS/Linux were not exercised in this run. Source is readable TypeScript plus compiled plain JavaScript; no executable binaries, model weights or node_modules are committed. Catalog admission is pending. Install the exact 40-character commit named in the catalog entry; a public repository alone is not an accepted listing.
+Version: **0.2.6**. Compatibility target: **Hermes >=0.23.1**, Node >=20.18.1 with npm (locked Cheerio/Undici floor). Verified on Windows with Node 24.16.0 and Hermes' PM-managed Node 26.12.1; macOS/Linux were not exercised in this run. Source is readable TypeScript plus compiled plain JavaScript; no executable binaries, model weights or node_modules are committed. Catalog admission is pending. Install the exact 40-character commit named in the catalog entry; a public repository alone is not an accepted listing.
 
 ## Install (explicit once)
 
@@ -32,7 +32,7 @@ Then:
 
 Setup also asks when the agent should use the plugin: `auto` (whenever it judges a task needs assets, the default) or `on-request` (only when you name Asset Curator or directly ask for an asset). The choice reaches tool descriptions from the next session. Setup can also record a projects folder you choose; the plugin may then save assets straight into a project inside it (pass an absolute `outputDir`). Without one, files stay in the plugin's own folder and each result says how to copy them into the project. A drive root, your whole home folder, or a folder containing the Hermes profile is refused.
 
-When you work inside a project, `search_assets` accepts `projectPath`. The plugin reads the project's rendering code, asset files and docs (not pictures) to work out its art style. When the request names no style, results whose source declares a conflicting style are set aside in `offStyle`, and the response includes the project's colours for drawing matching sprites.
+When you work inside a project, `search_assets` accepts `projectPath`. The plugin reads the project's rendering code, asset files and docs (not pictures) to work out its art style. Results whose source declares a style that conflicts with the wanted one (named in the request, or otherwise the project's) are set aside in `offStyle`, and the response includes the project's colours for drawing matching sprites.
 
 Read-only metadata tools do not need setup. Acquisition, download and creation enforce saved mode and licensing. Browser consent is never inferred from host approval.
 

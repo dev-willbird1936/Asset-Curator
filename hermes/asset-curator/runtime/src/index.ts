@@ -34,7 +34,7 @@ const SETUP_TOOLS = new Set(["get_setup", "configure_preferences", "configure_cl
 
 const server = new McpServer({
   name: "asset-curator-mcp",
-  version: "0.2.5"
+  version: "0.2.6"
 }, {
   instructions: startupTrigger + " When you do use it: start with get_setup. If required, ask the user the setup questions once and call configure_preferences only with their answers; never infer consent. For existing assets use search_assets/grab_asset; for creation use list_generators then generate_asset, or get_generator_help and render_pixel_recipe. For advanced tools create_generator_project writes editable source only: adapt it, explicitly execute with an approved runtime, inspect the result, then prepare_existing_asset(origin=created) with actual rights. Never claim a starter is a rendered match for arbitrary intent. No automatic dependency/model installs. ready/ is prepared output. Respect saved acquisition mode, license policy, and browser consent. Use the credential route reported by get_setup; never put API keys in chat or read other applications' credential stores. Preserve manifests and attribution. No automatic login, payment, captcha solving, or accepting terms."
 });

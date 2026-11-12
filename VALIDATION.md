@@ -1,6 +1,6 @@
 # Release validation
 
-Version 0.2.5. Hermes 0.23.1, Windows, Node 24. Run on 11 and 12 November 2026.
+Version 0.2.6. Hermes 0.23.1, Windows, Node 24. Run on 11 and 12 November 2026.
 
 ## Package checks
 
@@ -51,7 +51,7 @@ Generic searches in one of them (Stormshrine), live, safe licences:
 | stone floor texture | Photoreal Poly Haven textures | Set aside; only an unconfirmed procedural texture left |
 | explosion effect | Procedural pixel burst | Procedural pixel burst, style confirmed |
 
-A style named in the request still wins: "photoreal stone floor texture" in the pixel game returns Poly Haven floors. In a small low-poly Three.js project, KayKit chests and skeletons were kept and photoreal results set aside.
+A style named in the request still wins: "photoreal stone floor texture" in the pixel game returns Poly Haven floors. Since 0.2.6 a named style also sets aside declared conflicts: "pixel art stone floor texture" set aside 4 photoreal floors, and "photorealistic wooden barrel" set aside 4 non-photoreal results. In a small low-poly Three.js project, KayKit chests and skeletons were kept and photoreal results set aside.
 
 In 11 live Hermes sessions on copies of the games (auto mode, generic prompts such as "add a new enemy with its own art"), the agent never downloaded an off-style asset. It drew pixel sprites with the pixel generator or extended the project's own code-drawn art, and in one case followed the project's own "no downloaded files" rule. Asked to "find" a chest or a floor texture, it passed `projectPath`, found nothing in pixel style under safe licences, and drew one in the game's colours. The generated sprites match the games' pixel medium; they are simpler and less shaded than the games' best art.
 

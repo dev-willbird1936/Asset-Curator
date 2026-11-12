@@ -1,7 +1,7 @@
 {
-  "version": "0.2.5",
+  "version": "0.2.6",
   "source": "Built from the repository working tree; the hashes below let launch.mjs detect a modified runtime. The reviewed version is the Git commit pinned in the Hermes catalog entry.",
-  "builtAt": "2026-11-12T07:50:15.308Z",
+  "builtAt": "2026-11-12T09:42:53.681Z",
   "files": {
     ".npmrc": "f88856d7fd2a35498ed5889e220204a89470868dad426fef972025d86ac130a7",
     "asset-grabber-sources.json": "44a163ecd3939d598468eb294e933ad4616f93dea27015fa6baa1f7044b10500",
@@ -34,7 +34,7 @@
     "lib/generator-recipes.js": "11f0e361a727b589cd3cfc147741db7171370e1d60dca7cd4454892816a0c9b2",
     "lib/gltf.js": "33ac5c701fa05f6587b50df8f01825caec6853be692d042bc26424fc7fb201b4",
     "lib/http.js": "83572b1fec7d5840b68d831e5390ebf47064f683731471019c03e92ec8f9c036",
-    "lib/index.js": "5887376e536df421ba523edd5e70b7ac0eafc884a004fabbd796c23d248a612f",
+    "lib/index.js": "b862aa172200f02981f007f9cc66cd207ba97538e42524e850ae7c962c5ae92a",
     "lib/intent.js": "191602f40114bdf6870684e48441c8bcc8f57e1cb727480d7296b52104265da6",
     "lib/kaykit.js": "996346038ca9f7b8c40833df43e43d046b9cbafd2865f404bdb0c24870612b51",
     "lib/kenney.js": "777d79b95bc9d422bb567b3aeb92fe8f0ca0a9dc7e6bab478d3c0974eee40474",
@@ -45,7 +45,7 @@
     "lib/prepare.js": "72b55137aedb9e9299c1feda9d0d79670a766f62f1128933194377d0cf42e564",
     "lib/procedural-sfx.js": "548c516d6ebb6100de1c4d0699db2e4c4dbcae274d87850311514b787a19994d",
     "lib/project-style.js": "28fc8ac3ebbab35edffab6db0e9f215cf28452a3b91dffe0f3b66c10176c216c",
-    "lib/providers.js": "0c0de4b125ee6cd148be8608f44729ed2a442684f3cd6aea65dca8749b4bd71c",
+    "lib/providers.js": "1746b190f61f59181f44c98b75206ddbc9d55851d510e74dfbe1e07e425468e9",
     "lib/registry.js": "5fd3e6e7740ef3238a71d0fefac6ca8e6fe3c051c3cb0e2c14e6b770b26634e9",
     "lib/runtime-profile.js": "ce6eb777c24988b97c37a84c967589b8428476b3e0a5553a6cf05fbf41d0b66c",
     "lib/settings.js": "7f9ff7adcb36ae8b6f155e104e109e6f712a8b55f096f05c2526cb3c93d03390",
@@ -58,8 +58,8 @@
     "LICENSE": "00942a02271e35ec8c619b778e2e06a7cd7447c9975daa0d3cca0d356192bcb6",
     "NOTICE.md": "75c10a5e00e9aeeaee8183a2cdbedf214ae192c117e446f0b7e9083338dd6210",
     "npm-global.conf": "0ba7bd4fb7b311abb86f61dd7ecdb03bf1b03a95fcc0b545254f079dd232f89d",
-    "package-lock.json": "e47caa2e5a77916350a7e24b0c2051a8162de58baac05a1582650420fad8fa88",
-    "package.json": "1eddc36f53fcaca6a134caa4d20b93ce5ec6b086c7866dbbc99d74cabdc47447",
+    "package-lock.json": "8b551c9686fa7f0d9a5fcdd1e15614d65c3170ca0203f99130fbd7d97c62f721",
+    "package.json": "43319575745347fb58761a39b8c67b4dd249fc1db1df239f46cec91d86b53e07",
     "src/advisor.ts": "b632b4158795dbcf6196ad12321575f429067dbbe4007d21aad15d3136d73893",
     "src/archive.ts": "3d832a5af560ad17212d22f178e52d684f7a6162a9f47184f5a46f51f9eb6637",
     "src/artifact-facts.ts": "b46cce1317ad0fb244710b4bfa3e36d02c0232a0293f62a6b1719f31236f3eea",
@@ -70,7 +70,7 @@
     "src/generator-recipes.ts": "e24bd92bf6b1fe9f487bbc843c540f764e460dc24045e9b7cdda7fcc60e511e7",
     "src/gltf.ts": "1e36cf88e2792a4f47ddb3e8ea35f89c112a1573c5d20f3b0bdd6eef85e723aa",
     "src/http.ts": "bb1ce16df9f91f9c06910dc73f9976f8e1dfe82ab38c0e6a6c48d8f12e125bc0",
-    "src/index.ts": "970e6dd1528dec933370ed4bf2b3fbbd6aee50fd955cf69bf92fb188b576ce96",
+    "src/index.ts": "2a8789d9bb80ef625ee1a109e3833faf1f7e7a8a78f31e28d11cb8d82657b56a",
     "src/intent.ts": "38a6990f7e3c744b16a01d2d05474b0b6a62760b549f4d3a726663531ee2ef9a",
     "src/kaykit.ts": "90f705e1202a39432775b584305463a58e434586fd78aa044928ff2696895883",
     "src/kenney.ts": "88fd07741770c5a0714d10e8114540ec430d50120a69320a3829044432913274",
@@ -82,7 +82,7 @@
     "src/prepare.ts": "e04b484e051dbb689fdcd52113c9582737c57322611eee4603f1765fcd6aca85",
     "src/procedural-sfx.ts": "d414e426e1be0ac29ffdc2ac273ffb22c1304579c3f623638724d293d3b085b6",
     "src/project-style.ts": "8af7f4167d33f11be393b075d73022fda9c96abbbebd3f90f5bfa3f66d094045",
-    "src/providers.ts": "e8e82355e7e301da00319e18173e7324d6525cc68a1c211598c8fe97045a4f35",
+    "src/providers.ts": "d96951e4c1473a1a9e94ee08c8ee01b10a75ba672ad73e02beccadf7c38fd5d2",
     "src/registry.ts": "0b018289f39c2349be0e88c3bad994d70d97e72c16d0ffd71c03eaa9d1e8e118",
     "src/runtime-profile.ts": "103f566926fd312da298c02e7cc5dc28c2ea119b33de29f5149d60f9d1f7676c",
     "src/settings.ts": "2c6031af5328f470ef3fdb713ffe8d7268ef282aec50214f6a496edb2c35d3f6",
@@ -93,5 +93,5 @@
     "src/vendor/zzfx.ts": "6ecd7422e83bb2727203085fb1c0e13818919f9f494968b5d30c932956ff14a0",
     "src/vendor/zzfxm.ts": "3474035d64bf4f8249b598817bdeda9c051b0779a2a706b118aa77f15ede4768"
   },
-  "sourceDigest": "6f42d0ea5acaf9b3c7f58dc070943c3a491161a1e8ca9880336755e4a9d04279"
+  "sourceDigest": "3aec42c84c5315e998b37aeebcda3dae7b6c6ec8aefc890593a816f190cc80a7"
 }
