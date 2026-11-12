@@ -1,4 +1,8 @@
 {
+ "video": {
+  "src": "demo.mp4",
+  "poster": "poster.jpg"
+ },
  "briefSHA256": "46ce7c7471004684d6fd6850abca73439ce6c63aaacf3418fd12b53fa14670d2",
  "runs": [
   {
