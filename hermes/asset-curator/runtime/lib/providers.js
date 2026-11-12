@@ -7,6 +7,7 @@ import { searchGeneratedAssets } from "./generation.js";
 import { searchPixelAssets } from "./pixel-search.js";
 import { searchOpenverse } from "./openverse.js";
 import { searchKenneyAssets } from "./kenney.js";
+import { analyzeProjectStyle } from "./project-style.js";
 import { expandedRequest, inferCategory, namedSources, parseIntent, quotedPhrases, scoreText, styleEvidence, styleScore, violatesNegatives } from "./intent.js";
 import { searchKayKit } from "./kaykit.js";
 import { createProceduralSfxDescriptor, matchProceduralSfxPreset } from "./procedural-sfx.js";
@@ -72,9 +73,13 @@ export async function searchAssetsWithDiagnostics(options) {
     const explicitCategory = searchOptions.category && searchOptions.category !== "Unknown" ? searchOptions.category : undefined;
     const category = explicitCategory ?? inferCategory(intent.positive);
     const providerOptions = { ...searchOptions, request: intent.positive, category: category === "Unknown" ? undefined : category };
+    // A style named in the request always wins; otherwise the project's own style (if given) ranks results.
+    const projectStyle = searchOptions.projectPath ? await analyzeProjectStyle(searchOptions.projectPath) : undefined;
+    const styles = intent.styles.length ? intent.styles : projectStyle?.styles ?? [];
+    const styleSource = intent.styles.length ? "request" : styles.length ? "project" : "none";
     const interpretation = {
         category, categoryBasis: explicitCategory ? "explicit" : category === "Unknown" ? "not inferred; all media types searched" : "inferred from wording; pass category to override",
-        excludedTerms: intent.negatives, requestedStyles: intent.styles
+        excludedTerms: intent.negatives, requestedStyles: styles, styleSource
     };
     const effectiveLimit = Math.max(1, Math.min(searchOptions.limit ?? settings.search.maxResultsDefault, 50));
     const includeManualResults = Boolean(searchOptions.includeManualResults || settings.search.allowManualResults || searchOptions.source);
@@ -120,7 +125,7 @@ export async function searchAssetsWithDiagnostics(options) {
         // Source reputation or priority must never turn an unrelated item into a match.
         .filter((result) => result.score > 0 && !violatesNegatives(result, intent.negatives))
         .map((result) => {
-        const style = styleEvidence(result, intent.styles);
+        const style = styleEvidence(result, styles);
         // A quoted exact title or a source named in prose is a stated preference.
         const title = result.title.toLowerCase().replace(/[_-]+/g, " ");
         const bonus = (quoted.some((phrase) => title.includes(phrase.replace(/[_-]+/g, " "))) ? 40 : 0) + (preferred.includes(result.source) ? 10 : 0);
@@ -133,7 +138,14 @@ export async function searchAssetsWithDiagnostics(options) {
         count: hidden.length, sources: [...new Set(hidden.map((result) => result.source))],
         note: "These sources matched but need browser-assisted or manual retrieval. Ask the user to enable browser assistance, or repeat with includeManualResults to see them."
     } : undefined;
+    // Style taken from the project (not the request): declared conflicts are set aside, not ranked.
+    const offStyleResults = styleSource === "project" ? relevant.filter((result) => result.style?.conflicting && passesLicenseSettings(settings, result, { includeManualResults })) : [];
+    const offStyle = offStyleResults.length ? {
+        count: offStyleResults.length, examples: offStyleResults.slice(0, 4).map((result) => `${result.source}: ${result.title} (${result.style.conflicting})`),
+        note: `These match the subject but their source declares a style that conflicts with the project's ${styles.join(", ")} art. Name a style in the request if you want them anyway.`
+    } : undefined;
     const rankedResults = relevant
+        .filter((result) => !offStyleResults.includes(result))
         .filter((result) => passesLicenseSettings(settings, result, { includeManualResults }))
         .map((result) => ({
         ...result,
@@ -148,13 +160,20 @@ export async function searchAssetsWithDiagnostics(options) {
         advisor: advised.trace,
         relevance: relevance.trace,
         interpretation,
+        ...(projectStyle ? { projectStyle } : {}),
+        ...(offStyle ? { offStyle } : {}),
         withheld,
-        nextSteps: nextSteps(relevance.results, category, intent.styles, Boolean(withheld), mode)
+        nextSteps: nextSteps(relevance.results, category, styles, Boolean(withheld), mode, projectStyle)
     };
 }
 /** Honest routes when a search is empty or its style is unproven. Suggestions only: nothing here is a match. */
-function nextSteps(results, category, styles, withheld, mode) {
+function nextSteps(results, category, styles, withheld, mode, project) {
     const steps = [];
+    if (project?.styles.includes("pixel") && mode !== "existing" && !["Audio", "Music"].includes(category) && (!results.length || results.every((r) => r.style && (r.style.unconfirmed.length || r.style.conflicting)))) {
+        if (!results.length)
+            steps.push("Nothing in a matching style was found (see offStyle for subject matches in other styles). Do not substitute one of those without telling the user.");
+        steps.push(`This project is pixel art${project.codeGeneratedArt ? " drawn in code" : ""}. To match it, draw the asset with render_pixel_recipe${project.typicalSpriteSize ? ` at about ${project.typicalSpriteSize}px` : ""} using the project's own colours (projectStyle.palette)${project.codeGeneratedArt ? ", or draw it in code the way the project does" : ""}.`);
+    }
     const unproven = results.length > 0 && results.every((result) => result.style && (result.style.unconfirmed.length || result.style.conflicting));
     if (results.length && !unproven)
         return undefined;

@@ -1,6 +1,6 @@
 # Release validation
 
-Version 0.2.3. Hermes 0.23.1, Windows, Node 24. Run on 11 and 12 November 2026.
+Version 0.2.4. Hermes 0.23.1, Windows, Node 24. Run on 11 and 12 November 2026.
 
 ## Package checks
 
@@ -37,6 +37,25 @@ End to end in auto mode (0.2.2), the agent searched for, downloaded and generate
 0.2.3 adds an optional projects folder chosen at setup, an accurate `outputDir` description and a copy hint in every result. With the folder set, both game builds saved their assets (a KayKit car; Mixkit sounds and a generated crate) into `public/assets` inside the project with their licence files, and every asset path in the written `main.js` points to an existing file. The games were not run in a browser. The full 20-case suite on 0.2.3 again passed 18 of 18 graded cases.
 
 One conversation per case is not a statistic. Other models were not tested.
+
+## Project art style (0.2.4)
+
+Tested on four existing 2D pixel-art browser games whose art is drawn in code. The project reader classified all four as 2D pixel art from their rendering code and sprite tooling.
+
+Generic searches in one of them (Stormshrine), live, safe licences:
+
+| Request | Without projectPath | With projectPath |
+| --- | --- | --- |
+| treasure chest, sword | Photoreal Poly Haven and low-poly KayKit models, no warning | Set aside in `offStyle`; "nothing in a matching style" |
+| health pickup icon | Vector Game-icons, no warning | Set aside; pointed to drawing a pixel sprite |
+| stone floor texture | Photoreal Poly Haven textures | Set aside; only an unconfirmed procedural texture left |
+| explosion effect | Procedural pixel burst | Procedural pixel burst, style confirmed |
+
+A style named in the request still wins: "photoreal stone floor texture" in the pixel game returns Poly Haven floors. In a small low-poly Three.js project, KayKit chests and skeletons were kept and photoreal results set aside.
+
+In 11 live Hermes sessions on copies of the games (auto mode, generic prompts such as "add a new enemy with its own art"), the agent never downloaded an off-style asset. It drew pixel sprites with the pixel generator or extended the project's own code-drawn art, and in one case followed the project's own "no downloaded files" rule. Asked to "find" a chest or a floor texture, it passed `projectPath`, found nothing in pixel style under safe licences, and drew one in the game's colours. The generated sprites match the games' pixel medium; they are simpler and less shaded than the games' best art.
+
+Limits: the reader uses code, files and docs only, never pixels. Style labels come from source metadata. Under safe licences there is no downloadable pixel-art sprite source; Pixel Search needs the any-licence setting.
 
 ## Four-way game comparison
 

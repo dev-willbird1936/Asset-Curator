@@ -11,6 +11,7 @@ Built by [@wb1936 on X](https://x.com/wb1936).
 - **Rigged low-poly characters and props:** 903 CC0 KayKit models fetched per model at pinned commits, alongside Poly Haven, ambientCG, Openverse, Google Fonts and three icon sets.
 - **You choose when it triggers:** setup asks whether the agent uses the plugin automatically when a task needs assets, or only when you name it or ask for an asset.
 - **Saves into your project if you let it:** choose a projects folder at setup and assets land inside the project, licence files included; otherwise every result says where the files are and how to copy them.
+- **Matches your project's art style:** pass the project folder, and a generic "treasure chest" in a pixel-art game no longer returns a photoreal model. Off-style matches are set aside and the project's colours are returned for drawing a matching sprite.
 - **Play the comparison:** [one dungeon game built four ways](https://dev-willbird1936.github.io/Asset-Curator/), with and without the plugin.
 - **Honest search:** results report how the request was read, whether the style is confirmed by metadata, which matches need browser consent, and what to try when nothing fits. "not wooden" excludes wooden results; a request with no subject returns nothing.
 - **18 native presets**, custom Pixelbolt recipes, ZzFX/ZzFXM sound synthesis and eight editable authoring integrations.
@@ -34,7 +35,7 @@ Requires Hermes >=0.23.1 and Node >=20.18.1/npm. Windows verified; macOS/Linux n
 
 ## Verification and honest limits
 
-Version 0.2.3. The development suite passes 19 test programs. A live quality pass ran 44 edge-case searches, 18 end-to-end grabs and 10 checks through the installed package; see VALIDATION.md. Hermes 0.23.1 Doctor, actual 16-tool MCP discovery, normal write denial and restart recovery passed in an isolated profile.
+Version 0.2.4. The development suite passes 20 test programs. A live quality pass ran 44 edge-case searches, 18 end-to-end grabs and 10 checks through the installed package; see VALIDATION.md. Hermes 0.23.1 Doctor, actual 16-tool MCP discovery, normal write denial and restart recovery passed in an isolated profile.
 
 Sixteen real Hermes requests produced seven visually matched results, three partial matches, three unlistened audio outputs and three unfulfilled requests. One authentication interruption was continued separately and retained; these are not statistical quality estimates. The new barrel preset was additionally generated and rendered outside that frozen cohort.
 

@@ -66,6 +66,8 @@ export type AssetSearchOptions = {
   limit?: number;
   includeManualResults?: boolean;
   useAdvisor?: boolean;
+  /** Absolute path of the project the asset is for; its art style ranks results when the request names none. */
+  projectPath?: string;
 };
 
 export type AssetAdvisorIntent = {
@@ -106,7 +108,11 @@ export type AssetSearchResponse = {
   advisor: AssetAdvisorTrace;
   relevance?: AssetRelevanceTrace;
   /** How the request was read. Category is inferred from wording unless passed explicitly. */
-  interpretation?: { category: AssetCategory; categoryBasis: string; excludedTerms: string[]; requestedStyles: string[] };
+  interpretation?: { category: AssetCategory; categoryBasis: string; excludedTerms: string[]; requestedStyles: string[]; styleSource?: "request" | "project" | "none" };
+  /** Art style read from the project at projectPath (files, code and docs; not visual). */
+  projectStyle?: import("./project-style.js").ProjectStyle;
+  /** Subject matches set aside because their declared style conflicts with the project's style. */
+  offStyle?: { count: number; examples: string[]; note: string };
   /** Matching leads hidden because they need browser-assisted or manual retrieval. */
   withheld?: { count: number; sources: string[]; note: string };
   /** Present when nothing matched or no result's style is confirmed. Routes to try, never matches. */

@@ -34,7 +34,7 @@ export const generationInputSchema = z.object({
   size: z.union([z.literal(16), z.literal(32), z.literal(64), z.literal(128), z.literal(256)]).optional(),
   frames: z.number().int().min(1).max(32).optional(),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-  parameters: synthParametersSchema.optional().describe("ZzFX only: up to 21 synth controls; null selects the upstream default. Envelope capped at 10 seconds."),
+  parameters: synthParametersSchema.optional().describe("ZzFX only, in this order (null keeps the default): volume 0-1, randomness 0-1, frequency Hz 0-16000, attack s 0-5, sustain s 0-5, release s 0-5, shape integer 0-5, shapeCurve 0-8, slide, deltaSlide, pitchJump, pitchJumpTime 0-5, repeatTime 0-5, noise, modulation, bitCrush 0-1, delay s 0-5, sustainVolume 0-1, decay s 0-5, tremolo 0-1, filter -20000 to 20000. attack+sustain+release+delay+decay must total 10 s or less."),
   song: synthSongSchema.optional().describe("ZzFXM only: instruments, equal-length tracker channels [instrument, pan, ...notes], pattern sequence and BPM; 30 seconds maximum.")
 });
 export type GenerationInput = z.infer<typeof generationInputSchema>;

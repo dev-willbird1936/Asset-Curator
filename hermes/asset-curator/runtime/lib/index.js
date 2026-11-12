@@ -31,7 +31,7 @@ function useInProject(ready) {
 const SETUP_TOOLS = new Set(["get_setup", "configure_preferences", "configure_classifier"]);
 const server = new McpServer({
     name: "asset-curator-mcp",
-    version: "0.2.3"
+    version: "0.2.4"
 }, {
     instructions: startupTrigger + " When you do use it: start with get_setup. If required, ask the user the setup questions once and call configure_preferences only with their answers; never infer consent. For existing assets use search_assets/grab_asset; for creation use list_generators then generate_asset, or get_generator_help and render_pixel_recipe. For advanced tools create_generator_project writes editable source only: adapt it, explicitly execute with an approved runtime, inspect the result, then prepare_existing_asset(origin=created) with actual rights. Never claim a starter is a rendered match for arbitrary intent. No automatic dependency/model installs. ready/ is prepared output. Respect saved acquisition mode, license policy, and browser consent. Use the credential route reported by get_setup; never put API keys in chat or read other applications' credential stores. Preserve manifests and attribution. No automatic login, payment, captcha solving, or accepting terms."
 });
@@ -183,7 +183,7 @@ server.registerTool("provider_status", {
 });
 server.registerTool("search_assets", {
     title: "Search Free Assets",
-    description: "Search asset providers and return ranked results with diagnostics. Read `interpretation` (inferred media type, excluded 'not X' terms, requested styles), each result's `style` (metadata-only: 'unconfirmed' or 'conflicting' means do not present it as a style match), `withheld` (matches that need browser consent) and `nextSteps` (what to do when nothing fits). Pass a result's source:id to grab_asset as assetId to fetch exactly that one. May contact external services or the configured classifier; verify licenses before use.",
+    description: "Search asset providers and return ranked results with diagnostics. Pass projectPath when working in a project so results match its art style. Read `interpretation` (inferred media type, excluded 'not X' terms, requested styles and whether they came from the request or the project), `projectStyle`, `offStyle`, each result's `style` (metadata-only: 'unconfirmed' or 'conflicting' means do not present it as a style match), `withheld` (matches that need browser consent) and `nextSteps` (what to do when nothing fits). Pass a result's source:id to grab_asset as assetId to fetch exactly that one. May contact external services or the configured classifier; verify licenses before use.",
     annotations: { readOnlyHint: false, openWorldHint: true },
     inputSchema: z.object({
         request: z.string().min(1).describe("Natural language asset request, e.g. 'tree asset for Roblox'."),
@@ -197,9 +197,10 @@ server.registerTool("search_assets", {
             .boolean()
             .optional()
             .describe("Allow configured asset advisor CLI/API to rewrite vague requests before provider search. Defaults to settings."),
-        limit: z.number().int().min(1).max(25).optional().describe("Maximum results to return.")
+        limit: z.number().int().min(1).max(25).optional().describe("Maximum results to return."),
+        projectPath: z.string().max(1000).optional().describe("Absolute path of the game or project you are adding this asset to. Pass it whenever you work inside a project: its existing art style (read from its files, rendering code and docs) ranks results and flags mismatches when the request names no style. Must be inside the plugin's folder or the user's chosen projects folder.")
     })
-}, async ({ request, category, source, includeManualResults, useAdvisor, limit }) => {
+}, async ({ request, category, source, includeManualResults, useAdvisor, limit, projectPath }) => {
     const gate = await setupGate();
     if (gate)
         return gate;
@@ -209,6 +210,7 @@ server.registerTool("search_assets", {
         source,
         includeManualResults,
         useAdvisor,
+        projectPath,
         limit
     });
     return {

@@ -16,7 +16,7 @@ export function normalizeSynthParameters(input = [], music = false) {
     const p = DEFAULT_PARAMETERS.map((value, i) => input[i] ?? value);
     const range = (i, min, max) => {
         if (p[i] < min || p[i] > max)
-            throw new Error(`ZzFX ${PARAMETER_NAMES[i]} must be between ${min} and ${max}`);
+            throw new Error(`ZzFX ${PARAMETER_NAMES[i]} (parameter ${i + 1}) is ${p[i]}; it must be between ${min} and ${max}`);
     };
     range(0, 0, 1);
     range(1, 0, 1);
