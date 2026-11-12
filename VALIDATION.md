@@ -1,6 +1,6 @@
 # Release validation
 
-Version 0.2.4. Hermes 0.23.1, Windows, Node 24. Run on 11 and 12 November 2026.
+Version 0.2.5. Hermes 0.23.1, Windows, Node 24. Run on 11 and 12 November 2026.
 
 ## Package checks
 

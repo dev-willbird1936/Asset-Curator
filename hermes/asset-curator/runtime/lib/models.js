@@ -31,7 +31,8 @@ export async function callDecisionModel(settings, prompt) {
         model = advisor.model || advisor.deepseekModel || preset?.model;
     }
     if (provider === "custom") {
-        url = advisor.customProviderUrl;
+        // In a Hermes profile the endpoint is only the user's plugin setting, never a saved or model-chosen value.
+        url = envOnly ? process.env.ASSET_GRABBER_ADVISOR_URL || undefined : advisor.customProviderUrl;
         if (!envOnly && advisor.apiKey === undefined)
             key ||= advisor.customProviderApiKey;
         model = advisor.model || advisor.customProviderModel;

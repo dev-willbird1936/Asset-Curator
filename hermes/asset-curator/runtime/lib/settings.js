@@ -102,7 +102,7 @@ export async function saveSettings(input) {
     const settings = normalizeSettings(input);
     if (envOnly && settings.assetAdvisor.customProviderUrl && (credentialUrl(settings.assetAdvisor.customProviderUrl) || new URL(settings.assetAdvisor.customProviderUrl).search || new URL(settings.assetAdvisor.customProviderUrl).hash))
         throw new Error("Environment-only classifier URLs must not contain credentials, query or fragment");
-    const stored = envOnly ? { credentialMode: "environment", assetAdvisor: { provider: settings.assetAdvisor.provider, model: settings.assetAdvisor.model, customProviderUrl: settings.assetAdvisor.customProviderUrl, allowNetworkAiRanking: settings.assetAdvisor.allowNetworkAiRanking }, preferences: settings.preferences, search: settings.search, sources: settings.sources, priorityByCategory: settings.priorityByCategory, customSources: settings.customSources } : settings;
+    const stored = envOnly ? { credentialMode: "environment", assetAdvisor: { provider: settings.assetAdvisor.provider, model: settings.assetAdvisor.model, allowNetworkAiRanking: settings.assetAdvisor.allowNetworkAiRanking }, preferences: settings.preferences, search: settings.search, sources: settings.sources, priorityByCategory: settings.priorityByCategory, customSources: settings.customSources } : settings;
     const target = resolveSettingsPath();
     await mkdir(path.dirname(target), { recursive: true });
     const temporary = `${target}.${randomUUID()}.tmp`;
@@ -263,7 +263,7 @@ function isValidCustomSource(source) {
 function environmentAdvisor(saved = {}) {
     const requested = process.env.ASSET_GRABBER_ADVISOR_PROVIDER ?? saved.provider ?? "none";
     const provider = requested === "custom" || Object.hasOwn(MODEL_PROVIDERS, requested) ? requested : "none";
-    return { provider, model: process.env.ASSET_GRABBER_ADVISOR_MODEL ?? saved.model, customProviderUrl: process.env.ASSET_GRABBER_ADVISOR_URL ?? saved.customProviderUrl, allowNetworkAiRanking: provider !== "none" };
+    return { provider, model: process.env.ASSET_GRABBER_ADVISOR_MODEL ?? saved.model, customProviderUrl: process.env.ASSET_GRABBER_ADVISOR_URL || undefined, allowNetworkAiRanking: provider !== "none" };
 }
 const SECRET_QUERY = /^(?:api[-_]?key|key|access[-_]?token|refresh[-_]?token|token|auth(?:orization)?|password|passwd|secret|signature|sig|credential|session(?:id)?|x-amz-.*|x-goog-.*)$/i;
 function credentialUrl(value) {

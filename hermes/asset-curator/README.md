@@ -2,7 +2,7 @@
 
 **Find a usable asset or create it from code, with policy and provenance.** This is a real local MCP application, not a prompt-only plugin: indexed catalogs, bounded downloads/extraction, optional browser retrieval, optional relevance checks, programmable pixel art, parameter synthesis and editable code projects.
 
-Version: **0.2.4**. Compatibility target: **Hermes >=0.23.1**, Node >=20.18.1 with npm (locked Cheerio/Undici floor). Verified on Windows with Node 24.16.0 and Hermes' PM-managed Node 26.12.1; macOS/Linux were not exercised in this run. Source is readable TypeScript plus compiled plain JavaScript; no executable binaries, model weights or node_modules are committed. Catalog admission is pending. Install the exact 40-character commit named in the catalog entry; a public repository alone is not an accepted listing.
+Version: **0.2.5**. Compatibility target: **Hermes >=0.23.1**, Node >=20.18.1 with npm (locked Cheerio/Undici floor). Verified on Windows with Node 24.16.0 and Hermes' PM-managed Node 26.12.1; macOS/Linux were not exercised in this run. Source is readable TypeScript plus compiled plain JavaScript; no executable binaries, model weights or node_modules are committed. Catalog admission is pending. Install the exact 40-character commit named in the catalog entry; a public repository alone is not an accepted listing.
 
 ## Install (explicit once)
 
@@ -21,7 +21,7 @@ Start with `get_setup` (Hermes shows MCP names under the server prefix). Ask the
 - Browser-assisted retrieval when direct download is unavailable?
 - Existing assets, creation, or both (recommended)?
 
-Save only the user's answers using `configure_preferences`. Optionally ask which decision/classifier provider/model they want; `configure_classifier` accepts NONSECRET provider/model/endpoint only. Default is none, no API cost.
+Save only the user's answers using `configure_preferences`. Optionally ask which decision/classifier provider/model they want; `configure_classifier` accepts NONSECRET provider/model only; it refuses an endpoint URL. Default is none, no API cost.
 
 Then:
 - **Existing:** search_assets -> grab_asset -> inspect actual ready/ files and manifest. Search results say how the request was read (`interpretation`), whether each result's style is confirmed by metadata (`style`), which matches need browser consent (`withheld`) and what to try when nothing fits (`nextSteps`). Pass a result's `source:id` to grab_asset as `assetId` to fetch exactly that one. "not wooden" or "no vocals" excludes those results. A request that says GLB gets one self-contained GLB where the model fits the 64 MiB repack cap.
@@ -38,7 +38,7 @@ Read-only metadata tools do not need setup. Acquisition, download and creation e
 
 ## Optional classifier — Hermes credentials only
 
-Select provider/model using `configure_classifier`. Enter only the selected provider key on this plugin's Hermes Settings -> Plugins page, or through Hermes' approved active-profile secret configuration. The manifest's secret fields use the normal provider names (OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, DEEPSEEK_API_KEY, OPENROUTER_API_KEY, GROQ_API_KEY, PARALLEL_API_KEY, NACE_API_KEY), or ASSET_GRABBER_ADVISOR_API_KEY for custom. Keys are forwarded through the official profile-scoped MCP env route; they are not visible manifest data. Hermes reconnects changed secret launch inputs.
+Select provider/model using `configure_classifier`. A custom endpoint receives the custom key, so only the user sets it: the **Optional custom classifier URL** plugin setting (`custom_url`, mapped to `ASSET_GRABBER_ADVISOR_URL`). Hermes profiles ignore any URL saved in the plugin's settings file. Enter only the selected provider key on this plugin's Hermes Settings -> Plugins page, or through Hermes' approved active-profile secret configuration. The manifest's secret fields use the normal provider names (OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, DEEPSEEK_API_KEY, OPENROUTER_API_KEY, GROQ_API_KEY, PARALLEL_API_KEY, NACE_API_KEY), or ASSET_GRABBER_ADVISOR_API_KEY for custom. Keys are forwarded through the official profile-scoped MCP env route; they are not visible manifest data. Hermes reconnects changed secret launch inputs.
 
 OpenRouter model IDs `nace-ai/drex-max`, Jev and Clef use native typed Decisions requests rather than chat. Its unversioned Drex alias is not a v1.1 guarantee (the live test reported `nace-ai/drex-max-20261016`). Select `nace`/`drex-max-v1.1` with a separate approved `NACE_API_KEY` for the pinned direct route; entitlement is required. Select `parallel`/`fast` for web-grounded decisions and call-wide citations. Typed classifiers preserve the query, batch at most eight candidate questions, handle refusals as uncertainty, and never claim pixel/file verification. Invalid/unavailable checks fall back deterministically. These routes are optional; no key/model call is needed for core use.
 

@@ -8,7 +8,7 @@ broker. Names below are the server's protocol names; hosts may namespace them.
 | --- | --- | --- |
 | get_setup | Read profile setup questions and saved completion state | Read-only |
 | configure_preferences | Persist explicit license, browser and acquisition choices | Write |
-| configure_classifier | Save nonsecret provider/model/endpoint choices; accepts no API key | Write |
+| configure_classifier | Save nonsecret provider/model choices; accepts no API key and no endpoint URL | Write |
 | list_generators | Discover presets and eight authoring integrations | Read-only |
 | get_generator_help | Read contracts and bundled Pixelbolt guide/schema | Read-only |
 | create_generator_project | Write complete editable source; never install/run it | Write |

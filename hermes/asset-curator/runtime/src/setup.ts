@@ -44,7 +44,7 @@ export function setupStatus(settings: AssetGrabberSettings) {
       { field: "acquisitionMode", question: "Grab existing assets, create assets through code, or both (recommended)?", choices: ["existing", "create", "both"] },
       { field: "triggerMode", question: "Should the agent use Asset Curator automatically whenever it judges a task needs assets (auto, recommended), or only when you name it or directly ask for an asset (on-request)?", choices: ["auto", "on-request"], note: "Auto never changes your license, browser or acquisition choices. A change applies to tool descriptions from the next session." },
       { field: "projectsFolder", question: "Optional: which folder holds your projects? The agent can then save assets straight into a project inside it. Leave it empty to keep every file in the plugin's own folder.", choices: ["<absolute folder path>", null], note: "Only that folder and the plugin's own folder can be written. Not allowed: a drive root, your whole home folder, or a folder containing the Hermes profile." },
-      { field: "assetAdvisor", question: environmentCredentialsOnly() ? "Optionally connect a classifier through Hermes profile settings? Default is none; use ASSET_GRABBER_ADVISOR_PROVIDER plus its approved API-key secret, not chat or local files." : "Optionally connect a decision/classifier model? Choose none or configure a provider and key in the local settings UI.", optional: true }
+      { field: "assetAdvisor", question: environmentCredentialsOnly() ? "Optionally connect a classifier through Hermes profile settings? Default is none; use ASSET_GRABBER_ADVISOR_PROVIDER plus its approved API-key secret, not chat or local files. A custom endpoint URL is set only in the plugin's Hermes settings, never in chat." : "Optionally connect a decision/classifier model? Choose none or configure a provider and key in the local settings UI.", optional: true }
     ]
   };
 }
@@ -59,23 +59,22 @@ export async function configurePreferences(input: z.input<typeof preferencesSche
 
 export const classifierSchema = z.object({
   provider: z.enum(["none", "openai", "anthropic", "gemini", "deepseek", "openrouter", "groq", "parallel", "nace", "custom", "codex-cli", "claude-code-cli"]),
-  model: z.string().min(1).max(200).optional(),
-  url: z.string().url().max(2000).optional()
+  model: z.string().min(1).max(200).optional()
 }).strict();
 
+/** The custom endpoint receives a credential, so only the user sets it: Hermes plugin settings (custom_url ->
+ *  ASSET_GRABBER_ADVISOR_URL), the standalone settings page/CLI, or the environment. Never a model tool. */
+export const CUSTOM_URL_ROUTE = "The custom classifier URL is not set by this tool. The user sets it outside the chat: in Hermes, the plugin's Custom classifier URL setting (ASSET_GRABBER_ADVISOR_URL); standalone, the local settings page or that environment variable.";
+
 export async function configureClassifier(raw: z.input<typeof classifierSchema>) {
+  if (raw && typeof raw === "object" && "url" in raw) throw new Error(CUSTOM_URL_ROUTE);
   const input = classifierSchema.parse(raw), settings = await loadSettings();
   if (environmentCredentialsOnly() && input.provider.endsWith("-cli")) throw new Error("CLI subscription credentials are unavailable in this Hermes profile; choose an approved API route");
   if (environmentCredentialsOnly() && process.env.ASSET_GRABBER_ADVISOR_PROVIDER && process.env.ASSET_GRABBER_ADVISOR_PROVIDER !== input.provider) throw new Error("Classifier provider is pinned by the host profile; change it through Hermes profile settings");
-  if (input.url && input.provider !== "custom") throw new Error("An endpoint URL is only accepted for the custom provider");
-  if (input.url) {
-    const endpoint = new URL(input.url);
-    if (endpoint.username || endpoint.password || endpoint.search || endpoint.hash || endpoint.protocol !== "https:" && !(endpoint.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(endpoint.hostname))) throw new Error("Use a clean HTTPS or loopback classifier endpoint, never URL credentials/query/fragment");
-  }
   const changed = input.provider !== settings.assetAdvisor.provider;
   const advisor = { ...settings.assetAdvisor, provider: input.provider, allowNetworkAiRanking: input.provider !== "none",
     model: input.model ?? (changed ? undefined : settings.assetAdvisor.model),
-    customProviderUrl: input.url ?? settings.assetAdvisor.customProviderUrl };
+    customProviderUrl: settings.assetAdvisor.customProviderUrl };
   if (changed) { advisor.apiKey = undefined; advisor.deepseekApiKey = undefined; advisor.customProviderApiKey = undefined; }
   const saved = await saveSettings({ ...settings, assetAdvisor: advisor });
   return { provider: saved.assetAdvisor.provider, model: saved.assetAdvisor.model, credentialMode: environmentCredentialsOnly() ? "Hermes profile secrets only" : "standalone local settings/environment", credentialsAccepted: false, note: "No API key accepted or model call performed. Enter the selected provider key through the approved credential route, never chat. Existing license/browser/acquisition choices are unchanged." };
