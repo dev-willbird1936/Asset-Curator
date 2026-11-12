@@ -26,6 +26,8 @@ export type AssetPreferences = {
   acquisitionMode: "existing" | "create" | "both";
   /** auto = the agent decides when a task needs assets; on-request = only when the user names the plugin or directly asks for an asset. */
   triggerMode: "auto" | "on-request";
+  /** Optional folder the user chose at setup; the plugin may also write inside it. */
+  projectsFolder?: string;
 };
 
 export type AssetGrabberSettings = {

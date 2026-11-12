@@ -1,6 +1,6 @@
 # Release validation
 
-Version 0.2.2. Hermes 0.23.1, Windows, Node 24. Run on 11 and 12 November 2026.
+Version 0.2.3. Hermes 0.23.1, Windows, Node 24. Run on 11 and 12 November 2026.
 
 ## Package checks
 
@@ -32,7 +32,9 @@ One fresh profile and conversation per case; two judgement-call cases are not gr
 - An earlier run without file tools scored 16 of 18. Unable to save files, the agent pasted self-contained code and skipped assets for both game builds.
 - In these trigger runs a test-harness fault declined each conversation's first write-capable call. Grading counts attempted calls, so the verdicts stand. The fault was fixed for the end-to-end runs below.
 
-End to end in auto mode, the agent searched for, downloaded and generated assets for both game builds, then wrote the game. The files stayed in the plugin's own asset folder: by default the plugin writes only inside that folder, unless `ASSET_GRABBER_SAFE_ROOT` is set to a folder that contains the project. The test agent had no terminal to copy them, so neither game ended up loading them; the agent said so. (The test operator also declined direct writes into the project, which the plugin refuses by default anyway.)
+End to end in auto mode (0.2.2), the agent searched for, downloaded and generated assets for both game builds, then wrote the game, but the files stayed in the plugin's own asset folder. The plugin writes only inside that folder by default, and the test agent had no terminal to copy them, so neither game loaded them.
+
+0.2.3 adds an optional projects folder chosen at setup, an accurate `outputDir` description and a copy hint in every result. With the folder set, both game builds saved their assets (a KayKit car; Mixkit sounds and a generated crate) into `public/assets` inside the project with their licence files, and every asset path in the written `main.js` points to an existing file. The games were not run in a browser. The full 20-case suite on 0.2.3 again passed 18 of 18 graded cases.
 
 One conversation per case is not a statistic. Other models were not tested.
 

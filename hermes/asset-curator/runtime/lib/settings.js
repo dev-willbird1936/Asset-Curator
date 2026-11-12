@@ -1,7 +1,8 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { renameWithRetry } from "./util.js";
+import { renameWithRetry, resolvePhysicalPath, setProjectsRoot, isInsidePath } from "./util.js";
+import { statSync } from "node:fs";
 import { environmentCredentialsOnly } from "./runtime-profile.js";
 import os from "node:os";
 import path from "node:path";
@@ -31,18 +32,54 @@ export const DEFAULT_SETTINGS = {
     priorityByCategory: REGISTRY.priorityByCategory,
     customSources: []
 };
+/** Validate a user-chosen projects folder; returns its physical path or throws with the reason. */
+export function validateProjectsFolder(folder) {
+    if (typeof folder !== "string" || !path.isAbsolute(folder))
+        throw new Error("Projects folder must be an absolute path");
+    let info;
+    try {
+        info = statSync(folder);
+    }
+    catch {
+        throw new Error("Projects folder does not exist");
+    }
+    if (!info.isDirectory())
+        throw new Error("Projects folder must be a directory");
+    const physical = resolvePhysicalPath(folder);
+    if (path.parse(physical).root === physical)
+        throw new Error("A drive or filesystem root cannot be the projects folder");
+    if (physical === resolvePhysicalPath(os.homedir()))
+        throw new Error("Your whole home folder cannot be the projects folder; choose the folder that holds your projects");
+    const guarded = [path.dirname(resolveSettingsPath()), process.env.HERMES_HOME].filter((p) => Boolean(p));
+    if (guarded.some((p) => isInsidePath(physical, resolvePhysicalPath(p))))
+        throw new Error("The projects folder must not contain the Asset Curator settings or the Hermes profile");
+    return physical;
+}
+function checkedProjectsFolder(folder) {
+    if (typeof folder !== "string" || !folder)
+        return undefined;
+    try {
+        return validateProjectsFolder(folder);
+    }
+    catch {
+        return undefined;
+    } // an invalid saved folder grants nothing
+}
 export async function loadSettings() {
     const target = resolveSettingsPath();
     try {
         const input = JSON.parse(stripBom(await readFile(target, "utf8")));
         if (environmentCredentialsOnly() && input.credentialMode !== "environment")
             throw new Error("Expected nonsecret profile preferences");
-        return normalizeSettings(input);
+        const settings = normalizeSettings(input);
+        setProjectsRoot(settings.preferences.completed ? settings.preferences.projectsFolder : undefined);
+        return settings;
     }
     catch (error) {
         if (error.code !== "ENOENT") {
             throw new Error("Cannot read Asset Curator settings; repair the file or use --setup with another settings path.");
         }
+        setProjectsRoot(undefined);
         return normalizeSettings({});
     }
 }
@@ -76,6 +113,7 @@ export async function saveSettings(input) {
     finally {
         await rm(temporary, { force: true });
     }
+    setProjectsRoot(settings.preferences.completed ? settings.preferences.projectsFolder : undefined);
     return settings;
 }
 export function redactSettings(settings) {
@@ -106,7 +144,8 @@ export function normalizeSettings(input) {
             browserEnabled: preferences?.browserEnabled === true,
             acquisitionMode: ["existing", "create", "both"].includes(preferences?.acquisitionMode ?? "") ? preferences.acquisitionMode : "both",
             // Settings saved before 0.2.2 have no trigger choice; they keep the previous agent-decides behaviour.
-            triggerMode: preferences?.triggerMode === "on-request" ? "on-request" : "auto"
+            triggerMode: preferences?.triggerMode === "on-request" ? "on-request" : "auto",
+            projectsFolder: checkedProjectsFolder(preferences?.projectsFolder)
         },
         assetAdvisor: {
             ...DEFAULT_SETTINGS.assetAdvisor,

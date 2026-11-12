@@ -3,12 +3,13 @@ import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
 import { z } from "zod";
 import { ADVISOR_PROVIDERS, MODEL_PROVIDERS } from "./models.js";
-import { loadSettings, redactSettings, resolveSettingsPath, saveSettings } from "./settings.js";
+import { loadSettings, redactSettings, resolveSettingsPath, saveSettings, validateProjectsFolder } from "./settings.js";
 export const preferencesSchema = z.object({
     licensePolicy: z.enum(["safe", "any"]).describe("safe = known project-usable licenses; any = include restrictive/unknown licenses, still record provenance. Never bypasses access controls."),
     browserEnabled: z.boolean().describe("Explicit user consent to browser-assisted retrieval if ordinary downloads fail. Does not authorize login, captcha solving, payment or accepting terms."),
     acquisitionMode: z.enum(["existing", "create", "both"]).describe("Existing assets, deterministic code generation, or both (recommended)."),
-    triggerMode: z.enum(["auto", "on-request"]).optional().describe("auto = use the plugin whenever the agent judges a task needs asset files (recommended); on-request = only when the user names Asset Curator or directly asks for an asset. Omit to keep the saved choice.")
+    triggerMode: z.enum(["auto", "on-request"]).optional().describe("auto = use the plugin whenever the agent judges a task needs asset files (recommended); on-request = only when the user names Asset Curator or directly asks for an asset. Omit to keep the saved choice."),
+    projectsFolder: z.string().max(1000).nullable().optional().describe("Optional absolute path of the folder that holds the user's projects, exactly as the user gave it. The plugin may then also save assets inside it. null removes it; omit to keep the saved folder. Never choose one for the user.")
 }).strict();
 export const TRIGGER_GUIDANCE = {
     auto: "AUTO MODE IS ON (the user's saved choice; they already said yes, so do not ask or offer first). Writing a game, 3D scene, website, app screen, video or presentation is NOT a code-only task: before you write its code, use Asset Curator to get the real media it needs (at least the main character or prop models and key sounds for a game; icons, fonts or images for a site), then load them by the returned file paths. Do this even when the user only asks for the code and even if you cannot save files yourself. Also use it for any request for a model, sprite, texture, icon, font, sound or music. 'It works without assets' is not a reason to skip; do not settle for placeholder shapes, emoji or 'you can add assets later'. Skip only when the task involves no media at all (bug fixes, explanations, documents, planning, refactors) or the user says not to use assets or plugins.",
@@ -38,6 +39,7 @@ export function setupStatus(settings) {
             { field: "browserEnabled", question: "Permit browser-assisted retrieval when a normal download is unavailable?", choices: [false, true], note: "No login, payment, captcha solving or accepting terms automatically." },
             { field: "acquisitionMode", question: "Grab existing assets, create assets through code, or both (recommended)?", choices: ["existing", "create", "both"] },
             { field: "triggerMode", question: "Should the agent use Asset Curator automatically whenever it judges a task needs assets (auto, recommended), or only when you name it or directly ask for an asset (on-request)?", choices: ["auto", "on-request"], note: "Auto never changes your license, browser or acquisition choices. A change applies to tool descriptions from the next session." },
+            { field: "projectsFolder", question: "Optional: which folder holds your projects? The agent can then save assets straight into a project inside it. Leave it empty to keep every file in the plugin's own folder.", choices: ["<absolute folder path>", null], note: "Only that folder and the plugin's own folder can be written. Not allowed: a drive root, your whole home folder, or a folder containing the Hermes profile." },
             { field: "assetAdvisor", question: environmentCredentialsOnly() ? "Optionally connect a classifier through Hermes profile settings? Default is none; use ASSET_GRABBER_ADVISOR_PROVIDER plus its approved API-key secret, not chat or local files." : "Optionally connect a decision/classifier model? Choose none or configure a provider and key in the local settings UI.", optional: true }
         ]
     };
@@ -45,7 +47,8 @@ export function setupStatus(settings) {
 export async function configurePreferences(input) {
     const preferences = preferencesSchema.parse(input);
     const settings = await loadSettings();
-    const saved = await saveSettings({ ...settings, preferences: { ...preferences, triggerMode: preferences.triggerMode ?? settings.preferences.triggerMode, completed: true } });
+    const projectsFolder = preferences.projectsFolder === undefined ? settings.preferences.projectsFolder : preferences.projectsFolder === null || preferences.projectsFolder === "" ? undefined : validateProjectsFolder(preferences.projectsFolder);
+    const saved = await saveSettings({ ...settings, preferences: { ...preferences, triggerMode: preferences.triggerMode ?? settings.preferences.triggerMode, projectsFolder, completed: true } });
     return { ...setupStatus(saved), settings: redactSettings(saved) };
 }
 export const classifierSchema = z.object({
@@ -105,6 +108,8 @@ export async function runSetupCli() {
         const browserEnabled = await choose("Allow browser-assisted retrieval?", ["y", "n"], "n") === "y";
         const acquisitionMode = await choose("Asset acquisition", ["existing", "create", "both"], "both");
         const triggerMode = await choose("Use automatically when a task needs assets, or only on request?", ["auto", "on-request"], "auto");
+        const folderAnswer = (await rl.question("Optional projects folder the plugin may also save into (absolute path, blank for none): ")).trim();
+        const projectsFolder = folderAnswer ? validateProjectsFolder(folderAnswer) : undefined;
         const provider = await choose("Optional classifier provider", ADVISOR_PROVIDERS, "none");
         const advisor = { ...settings.assetAdvisor, provider, allowNetworkAiRanking: provider !== "none" };
         if (provider !== settings.assetAdvisor.provider) {
@@ -137,7 +142,7 @@ export async function runSetupCli() {
                 advisor.apiKey = key;
             }
         }
-        await saveSettings({ ...settings, preferences: { licensePolicy, browserEnabled, acquisitionMode, triggerMode, completed: true }, assetAdvisor: advisor });
+        await saveSettings({ ...settings, preferences: { licensePolicy, browserEnabled, acquisitionMode, triggerMode, projectsFolder, completed: true }, assetAdvisor: advisor });
         console.log(`Saved ${resolveSettingsPath()}. Ready for agent use.`);
     }
     finally {

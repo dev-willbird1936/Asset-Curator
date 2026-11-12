@@ -126,13 +126,21 @@ export function hasAncestorTraversal(filePath: string): boolean {
   return normalized.split("/").some((part) => part === "..");
 }
 
+// The projects folder the user explicitly chose in setup: a second allowed boundary, nothing wider.
+let projectsRoot: string | undefined;
+export function setProjectsRoot(folder: string | undefined): void { projectsRoot = folder ? resolvePhysicalPath(folder) : undefined; }
+export function projectsRootFolder(): string | undefined { return projectsRoot; }
+export function isInsidePath(root: string, target: string): boolean {
+  const relative = path.relative(root, target);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
 export function assertWithinSafeRoot(targetPath: string, label: string): void {
   if (process.env.ASSET_GRABBER_ALLOW_UNSAFE_PATHS === "1") return;
   const root = resolvePhysicalPath(process.env.ASSET_GRABBER_SAFE_ROOT ?? process.cwd());
   const target = resolvePhysicalPath(targetPath);
-  const relative = path.relative(root, target);
-  if (relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))) return;
-  throw new Error(`${label} is outside safe root (${root}): ${target}`);
+  if (isInsidePath(root, target) || (projectsRoot && isInsidePath(projectsRoot, target))) return;
+  throw new Error(`${label} is outside safe root (${root})${projectsRoot ? ` and the chosen projects folder (${projectsRoot})` : ""}: ${target}`);
 }
 
 // Resolve existing ancestors too: a not-yet-created output under a junction must

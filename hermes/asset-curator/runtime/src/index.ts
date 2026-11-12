@@ -12,7 +12,7 @@ import { createGeneratorProject, generatorHelp, generatorProjectSchema, GENERATO
 import { isSourceEnabled, loadSettings, redactSettings, sourcePriorityBoost } from "./settings.js";
 import { configurePreferences, configureClassifier, classifierSchema, preferencesSchema, runSetupCli, setupStatus, triggerKey, TRIGGER_GUIDANCE, TRIGGER_TAG } from "./setup.js";
 import type { AssetCategory } from "./types.js";
-import { assertWithinSafeRoot } from "./util.js";
+import { assertWithinSafeRoot, isInsidePath, projectsRootFolder, resolvePhysicalPath } from "./util.js";
 
 // Public project owner marker: dev-willbird1936.
 const categorySchema = z.enum(["2D", "3D", "Animation", "Audio", "Music", "Textures", "UI", "VFX", "Unknown"]);
@@ -22,13 +22,21 @@ const categorySchema = z.enum(["2D", "3D", "Animation", "Audio", "Music", "Textu
 const startupKey = await loadSettings().then(triggerKey, () => "unset" as const);
 const startupTrigger = TRIGGER_GUIDANCE[startupKey];
 const ENTRY_TOOLS = new Set(["search_assets", "generate_asset", "list_generators"]);
+const OUTPUT_DIR_HELP = "Where to save. Relative paths resolve inside the plugin's own asset folder, NOT the user's project. To save straight into a project, pass an absolute path inside the projects folder the user chose in setup (get_setup shows preferences.projectsFolder); anything else is refused.";
+function useInProject(ready: string): string {
+  const root = projectsRootFolder();
+  if (root && isInsidePath(root, resolvePhysicalPath(ready))) return "Saved inside the user's projects folder: load the readyFiles from paths.ready directly and keep ASSET_SOURCE.txt and any licence files with them.";
+  return root
+    ? `These files are in the plugin's own asset folder, not the project. To save straight into the project, call again with outputDir set to an absolute path inside ${root}. Otherwise copy the readyFiles you use, with ASSET_SOURCE.txt and any licence files, into the project.`
+    : "These files are in the plugin's own asset folder, not the project. Copy the readyFiles you use, with ASSET_SOURCE.txt and any licence files, into the project (for example with the terminal). To let the plugin save straight into projects, the user can choose a projects folder in setup.";
+}
 const SETUP_TOOLS = new Set(["get_setup", "configure_preferences", "configure_classifier"]);
 
 const server = new McpServer({
   name: "asset-curator-mcp",
-  version: "0.2.2"
+  version: "0.2.3"
 }, {
-  instructions: startupTrigger + " When you do use it: start with get_setup. If required, ask the user the five setup choices once and call configure_preferences only with their answers; never infer consent. For existing assets use search_assets/grab_asset; for creation use list_generators then generate_asset, or get_generator_help and render_pixel_recipe. For advanced tools create_generator_project writes editable source only: adapt it, explicitly execute with an approved runtime, inspect the result, then prepare_existing_asset(origin=created) with actual rights. Never claim a starter is a rendered match for arbitrary intent. No automatic dependency/model installs. ready/ is prepared output. Respect saved acquisition mode, license policy, and browser consent. Use the credential route reported by get_setup; never put API keys in chat or read other applications' credential stores. Preserve manifests and attribution. No automatic login, payment, captcha solving, or accepting terms."
+  instructions: startupTrigger + " When you do use it: start with get_setup. If required, ask the user the setup questions once and call configure_preferences only with their answers; never infer consent. For existing assets use search_assets/grab_asset; for creation use list_generators then generate_asset, or get_generator_help and render_pixel_recipe. For advanced tools create_generator_project writes editable source only: adapt it, explicitly execute with an approved runtime, inspect the result, then prepare_existing_asset(origin=created) with actual rights. Never claim a starter is a rendered match for arbitrary intent. No automatic dependency/model installs. ready/ is prepared output. Respect saved acquisition mode, license policy, and browser consent. Use the credential route reported by get_setup; never put API keys in chat or read other applications' credential stores. Preserve manifests and attribution. No automatic login, payment, captcha solving, or accepting terms."
 });
 
 const registerTool = server.registerTool.bind(server) as (...args: any[]) => unknown;
@@ -83,22 +91,22 @@ server.registerTool("render_pixel_recipe", {
   annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
   inputSchema: z.object({
     request: z.string().min(1).max(2000), recipe: z.record(z.string(), z.unknown()),
-    outputDir: z.string().optional(), overwrite: z.boolean().optional(), engine: z.string().optional(),
+    outputDir: z.string().optional().describe(OUTPUT_DIR_HELP), overwrite: z.boolean().optional(), engine: z.string().optional(),
     maxReadyFiles: z.number().int().min(1).max(5000).optional()
   })
 }, async (input) => {
   const gate = await setupGate(); if (gate) return gate;
   const manifest = await generatePixelRecipe(input);
-  return toolJson({ request: manifest.request, asset: manifest.asset.title, paths: manifest.paths, readyFiles: manifest.readyFiles, license: manifest.license, engineReadiness: manifest.engineReadiness, cacheHit: manifest.cacheHit });
+  return toolJson({ request: manifest.request, asset: manifest.asset.title, paths: manifest.paths, readyFiles: manifest.readyFiles, license: manifest.license, engineReadiness: manifest.engineReadiness, cacheHit: manifest.cacheHit, useInProject: useInProject(manifest.paths.ready) });
 });
 
 server.registerTool("generate_asset", {
   title: "Generate Code-based Asset",
   description: "Generate a deterministic sprite, animated VFX, seamless PBR texture set, low-poly GLB prop or synthesized music from a supported preset. Writes actual files, an editable recipe, regeneration code and a provenance manifest. Requires saved create/both preference. No arbitrary code execution or model calls.",
   annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
-  inputSchema: generationInputSchema.extend({ outputDir: z.string().optional(), overwrite: z.boolean().optional(), engine: z.string().optional(), maxReadyFiles: z.number().int().min(1).max(500).optional() })
+  inputSchema: generationInputSchema.extend({ outputDir: z.string().optional().describe(OUTPUT_DIR_HELP), overwrite: z.boolean().optional(), engine: z.string().optional(), maxReadyFiles: z.number().int().min(1).max(500).optional() })
 }, async (input) => {
-  try { return toolJson(await generateAsset(input)); }
+  try { const manifest = await generateAsset(input); return toolJson({ ...manifest, useInProject: useInProject(manifest.paths.ready) }); }
   catch (error) { return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : String(error) }], isError: true }; }
 });
 
@@ -303,7 +311,7 @@ server.registerTool(
     inputSchema: z.object({
       request: z.string().min(1).describe("Natural language asset request."),
       assetId: z.string().max(200).regex(/^[a-z0-9:-]+:[A-Za-z0-9._-]+$/).optional().describe("Exact 'source:id' of a search_assets result (same request text). Grabs that result or fails; never falls back to another asset."),
-      outputDir: z.string().optional().describe("Output directory. Defaults to ./assets-grabbed or ASSET_GRABBER_OUTPUT_DIR."),
+      outputDir: z.string().optional().describe(OUTPUT_DIR_HELP),
       category: categorySchema.optional().describe("Optional category filter."),
       source: z.string().optional().describe(`Optional source filter. Known: ${providerNames().join(", ")}.`),
       engine: z.string().optional().describe("Target engine, e.g. roblox, unity, godot."),
@@ -321,7 +329,7 @@ server.registerTool(
   },
   async (input) => {
     try {
-      const manifest = await grabAsset(input);
+      const grabbed = await grabAsset(input), manifest = { ...grabbed, useInProject: useInProject(grabbed.paths.ready) };
       return {
         content: [{ type: "text", text: JSON.stringify(manifest, null, 2) }],
         structuredContent: manifest
@@ -344,7 +352,7 @@ server.registerTool(
     inputSchema: z.object({
       sourcePath: z.string().min(1).describe("Local file or folder to prepare."),
       origin: z.enum(["existing", "created"]).optional().describe("Existing downloaded/local asset, or code-created by an external generator. Must match saved acquisition policy; defaults existing."),
-      outputDir: z.string().optional().describe("Output directory. Defaults to settings/default output."),
+      outputDir: z.string().optional().describe(OUTPUT_DIR_HELP),
       request: z.string().optional().describe("Asset intent/name used for selection and manifest."),
       engine: z.string().optional().describe("Target engine, e.g. roblox, unity, godot."),
       formats: z.array(z.string()).optional().describe("Preferred file extensions."),
@@ -358,7 +366,7 @@ server.registerTool(
   },
   async (input) => {
     try {
-      const manifest = await prepareExistingAsset(input);
+      const prepared = await prepareExistingAsset(input), manifest = { ...prepared, useInProject: useInProject(prepared.paths.ready) };
       return {
         content: [{ type: "text", text: JSON.stringify(manifest, null, 2) }],
         structuredContent: manifest
