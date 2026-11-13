@@ -10,8 +10,7 @@ export const preferencesSchema = z.object({
   licensePolicy: z.enum(["safe", "any"]).describe("safe = known project-usable licenses; any = include restrictive/unknown licenses, still record provenance. Never bypasses access controls."),
   browserEnabled: z.boolean().describe("Explicit user consent to browser-assisted retrieval if ordinary downloads fail. Does not authorize login, captcha solving, payment or accepting terms."),
   acquisitionMode: z.enum(["existing", "create", "both"]).describe("Existing assets, deterministic code generation, or both (recommended)."),
-  triggerMode: z.enum(["auto", "on-request"]).optional().describe("auto = use the plugin whenever the agent judges a task needs asset files (recommended); on-request = only when the user names Asset Curator or directly asks for an asset. Omit to keep the saved choice."),
-  projectsFolder: z.string().max(1000).nullable().optional().describe("Optional absolute path of the folder that holds the user's projects, exactly as the user gave it. The plugin may then also save assets inside it. null removes it; omit to keep the saved folder. Never choose one for the user.")
+  triggerMode: z.enum(["auto", "on-request"]).optional().describe("auto = use the plugin whenever the agent judges a task needs asset files (recommended); on-request = only when the user names Asset Curator or directly asks for an asset. Omit to keep the saved choice.")
 }).strict();
 
 export const TRIGGER_GUIDANCE = {
@@ -33,6 +32,8 @@ export function setupStatus(settings: AssetGrabberSettings) {
     required: !settings.preferences.completed,
     credentialMode: environmentCredentialsOnly() ? "Hermes profile environment only" : "standalone local settings/environment",
     settingsPath: resolveSettingsPath(),
+    projectsFolderRoute: PROJECTS_FOLDER_ROUTE,
+    userOnlyFilesystemSetup: { firstChoice: ["hermes", "separate"], separateChoices: ["full", "project", "review", "no"], recommendedSeparateChoice: "project", currentMode: settings.preferences.accessMode, note: "Set this yourself in plugin settings or standalone CLI. Do not send access settings to configure_preferences. Until chosen, no mode applies." },
     preferences: settings.preferences,
     triggerGuidance: triggerGuidance(settings),
     instructions: settings.preferences.completed
@@ -43,17 +44,19 @@ export function setupStatus(settings: AssetGrabberSettings) {
       { field: "browserEnabled", question: "Permit browser-assisted retrieval when a normal download is unavailable?", choices: [false, true], note: "No login, payment, captcha solving or accepting terms automatically." },
       { field: "acquisitionMode", question: "Grab existing assets, create assets through code, or both (recommended)?", choices: ["existing", "create", "both"] },
       { field: "triggerMode", question: "Should the agent use Asset Curator automatically whenever it judges a task needs assets (auto, recommended), or only when you name it or directly ask for an asset (on-request)?", choices: ["auto", "on-request"], note: "Auto never changes your license, browser or acquisition choices. A change applies to tool descriptions from the next session." },
-      { field: "projectsFolder", question: "Optional: which folder holds your projects? The agent can then save assets straight into a project inside it. Leave it empty to keep every file in the plugin's own folder.", choices: ["<absolute folder path>", null], note: "Only that folder and the plugin's own folder can be written. Not allowed: a drive root, your whole home folder, or a folder containing the Hermes profile." },
       { field: "assetAdvisor", question: environmentCredentialsOnly() ? "Optionally connect a classifier through Hermes profile settings? Default is none; use ASSET_GRABBER_ADVISOR_PROVIDER plus its approved API-key secret, not chat or local files. A custom endpoint URL is set only in the plugin's Hermes settings, never in chat." : "Optionally connect a decision/classifier model? Choose none or configure a provider and key in the local settings UI.", optional: true }
     ]
   };
 }
 
+export const PROJECTS_FOLDER_ROUTE = "Filesystem setup is user-controlled outside chat. Use Hermes-managed approvals (ASSET_GRABBER_ACCESS_MODE=hermes), or configure separately: full (no plugin path limit; OS/Hermes still apply), project (recommended; one workspace, default output asset-curator/), review (Asset Review Queue; stage in Downloads, host-approved promotion to project), or no (suggest only; downloads/use require a real host approval). Set ASSET_GRABBER_PROJECTS_FOLDER for project/review. Model tools cannot change either setting. A one-off host-confirmed action never changes the saved mode.";
+
 export async function configurePreferences(input: z.input<typeof preferencesSchema>) {
+  if (input && typeof input === "object" && ("projectsFolder" in input || "accessMode" in input)) throw new Error(PROJECTS_FOLDER_ROUTE);
   const preferences = preferencesSchema.parse(input);
   const settings = await loadSettings();
-  const projectsFolder = preferences.projectsFolder === undefined ? settings.preferences.projectsFolder : preferences.projectsFolder === null || preferences.projectsFolder === "" ? undefined : validateProjectsFolder(preferences.projectsFolder);
-  const saved = await saveSettings({ ...settings, preferences: { ...preferences, triggerMode: preferences.triggerMode ?? settings.preferences.triggerMode, projectsFolder, completed: true } });
+  const projectsFolder = settings.preferences.projectsFolder;
+  const saved = await saveSettings({ ...settings, preferences: { ...preferences, triggerMode: preferences.triggerMode ?? settings.preferences.triggerMode, projectsFolder, accessMode: settings.preferences.accessMode, completed: true } });
   return { ...setupStatus(saved), settings: redactSettings(saved) };
 }
 
@@ -102,8 +105,10 @@ export async function runSetupCli(): Promise<void> {
     const browserEnabled = await choose("Allow browser-assisted retrieval?", ["y", "n"], "n") === "y";
     const acquisitionMode = await choose("Asset acquisition", ["existing", "create", "both"], "both") as "existing" | "create" | "both";
     const triggerMode = await choose("Use automatically when a task needs assets, or only on request?", ["auto", "on-request"], "auto") as "auto" | "on-request";
-    const folderAnswer = (await rl.question("Optional projects folder the plugin may also save into (absolute path, blank for none): ")).trim();
-    const projectsFolder = folderAnswer ? validateProjectsFolder(folderAnswer) : undefined;
+    const control = await choose("Filesystem permissions: use Hermes approvals, or set up separately?", ["hermes", "separate"], "hermes");
+    const accessMode = control === "hermes" ? "hermes" : await choose("Separate access: project (recommended), full (no plugin path limits), review (Asset Review Queue), no (suggest only; downloads need approval)", ["project", "full", "review", "no"], "project") as "project" | "full" | "review" | "no";
+    if (accessMode === "full" && await choose("Full access can overwrite or expose sensitive files. Enable it?", ["y", "n"], "n") !== "y") throw new Error("Full access was not enabled");
+    const projectsFolder = accessMode === "project" || accessMode === "review" ? validateProjectsFolder((await rl.question("Project workspace (absolute path; assets default to its asset-curator folder): ")).trim()) : undefined;
     const provider = await choose("Optional classifier provider", ADVISOR_PROVIDERS, "none") as AssetGrabberSettings["assetAdvisor"]["provider"];
     const advisor = { ...settings.assetAdvisor, provider, allowNetworkAiRanking: provider !== "none" };
     if (provider !== settings.assetAdvisor.provider) {
@@ -128,7 +133,7 @@ export async function runSetupCli(): Promise<void> {
         advisor.apiKey = key;
       }
     }
-    await saveSettings({ ...settings, preferences: { licensePolicy, browserEnabled, acquisitionMode, triggerMode, projectsFolder, completed: true }, assetAdvisor: advisor });
+    await saveSettings({ ...settings, preferences: { licensePolicy, browserEnabled, acquisitionMode, triggerMode, projectsFolder, accessMode, completed: true }, assetAdvisor: advisor });
     console.log(`Saved ${resolveSettingsPath()}. Ready for agent use.`);
   } finally {
     rl.close();

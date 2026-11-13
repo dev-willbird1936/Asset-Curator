@@ -170,7 +170,7 @@ export async function prepareExistingAsset(options) {
     if (settings.preferences.licensePolicy === "safe" && (!options.licenseName?.trim() || /verify|unknown|per.item/i.test(options.licenseName)))
         throw new Error("Safe license policy requires known licenseName for local assets. Record the actual license or ownership; do not invent it.");
     const sourcePath = path.resolve(options.sourcePath);
-    assertWithinSafeRoot(sourcePath, "source asset path");
+    assertWithinSafeRoot(sourcePath, "source asset path", true, true);
     const outputRoot = resolveOutputDir(options.outputDir || settings.search.defaultOutputDir);
     const request = options.request || path.basename(sourcePath), id = slugify(request);
     const asset = {

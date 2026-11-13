@@ -1,6 +1,6 @@
 # Actual tool and environment inventory
 
-Version **0.2.0** exposes **16 stdio MCP tools**, verified through real MCP
+Version **0.3.0** exposes **19 stdio MCP tools**, verified through real MCP
 discovery in the clean npm install, portable Hermes launch and refreshed live
 broker. Names below are the server's protocol names; hosts may namespace them.
 
@@ -21,6 +21,9 @@ broker. Names below are the server's protocol names; hosts may namespace them.
 | compare_results | Per-source search comparison and diagnostics | Non-read-only, open-world |
 | grab_asset | Search, download/browser retrieve and prepare files | Write, open-world |
 | prepare_existing_asset | Prepare a supplied local file/folder with actual rights metadata | Write |
+| get_review_queue | Show pending previews and local review-page URL | Read-only |
+| review_asset | Host-confirm one exact queue decision | Write |
+| apply_review_queue | Host-confirm staged HTML selections | Write |
 | get_asset_manifest | Read the exact manifest filename within the safe root | Read-only |
 
 Write-capable tools retain destructive annotations where replacement can occur.
@@ -39,7 +42,7 @@ separate checks.
 ## Optional configuration and keys
 
 No environment key is mandatory. The plugin's Hermes extension declares nine
-optional secret fields, forwarded by official profile-scoped interpolation:
+optional API-key fields, forwarded by official profile-scoped interpolation:
 
 - OPENAI_API_KEY
 - ANTHROPIC_API_KEY
@@ -58,9 +61,9 @@ a key causes no inference, and configuration itself makes no model call.
 
 Optional nonsecret forwarded variables are ASSET_GRABBER_SAFE_ROOT,
 ASSET_GRABBER_ADVISOR_PROVIDER, ASSET_GRABBER_ADVISOR_MODEL,
-ASSET_GRABBER_ADVISOR_URL and ASSET_GRABBER_BROWSER_EXECUTABLE. The launcher gets
+ASSET_GRABBER_ADVISOR_URL, ASSET_GRABBER_ACCESS_MODE, ASSET_GRABBER_PROJECTS_FOLDER and ASSET_GRABBER_BROWSER_EXECUTABLE. The URL/mode/workspace are user-set fields using Hermes secret-field routing so they reach the environment; mode/path are not credentials. The launcher gets
 PLUGIN_ROOT/PLUGIN_DATA from Hermes, forces environment-only credentials and
-the profile's explicit nonsecret settings path, and refuses unsafe-path bypass.
+the profile's explicit nonsecret settings path, and disables the old unsafe-path flag. User-selected hermes/full modes intentionally impose no extra plugin path boundary; separate project/review/no modes enforce the documented scopes.
 It never adopts other applications' credential stores or signed-in profiles.
 
 All external generator projects require deliberate execution after inspection.

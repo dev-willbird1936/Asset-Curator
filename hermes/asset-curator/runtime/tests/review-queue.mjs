@@ -1,0 +1,74 @@
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, access } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+const tmp = await mkdtemp(path.join(os.tmpdir(), 'curator-review-'));
+process.env.HOME = tmp; process.env.USERPROFILE = tmp;
+process.env.ASSET_GRABBER_SETTINGS_PATH = path.join(tmp, 'profile', 'settings.json');
+const { queueManifest, listQueue, decideQueuedAsset, applyQueueSelections } = await import('../lib/review-queue.js');
+const project = path.join(tmp, 'project');
+async function prepared(name) {
+ const root = path.join(tmp, 'Downloads', 'asset-curator-review', name);
+ await mkdir(path.join(root, 'ready'), {recursive:true});
+ await writeFile(path.join(root, 'ready', 'asset.svg'), '<svg onload="alert(1)"></svg>');
+ await writeFile(path.join(root, 'ready', 'ASSET_SOURCE.txt'), 'CC0 license');
+ const manifest = {asset:{title:'<img src=x onerror=alert(1)>'}, paths:{root,ready:path.join(root,'ready'),manifest:path.join(root,'manifest.json')},license:{name:'CC0'}, readyFiles:['asset.svg']};
+ await writeFile(manifest.paths.manifest,JSON.stringify(manifest)); return manifest;
+}
+try {
+ await mkdir(project);
+ const m = await prepared('one'), item = await queueManifest(m, project);
+ await assert.rejects(queueManifest(m,project), /already/);
+ let queue = await listQueue(); assert.equal(queue.pending,1);
+ let response = await fetch(queue.url); const html = await response.text();
+ assert.match(html, /1 pending/); assert.ok(!html.includes('<svg')); assert.ok(!html.includes('<img src=x')); assert.match(html,/&lt;img/);
+ assert.match(html,/Yes: request approval/); assert.match(html,/Return to Hermes/);
+ const csrf = html.match(/name="csrf" value="([^"]+)"/)[1];
+ const body = new URLSearchParams({csrf,id:item.id,decision:'approve'});
+ response=await fetch(queue.url,{method:'POST',body,headers:{Origin:'https://evil.example'}}); assert.equal(response.status,403);
+ await assert.rejects(access(item.destination));
+ response=await fetch(queue.url,{method:'POST',body,headers:{Origin:new URL(queue.url).origin},redirect:'manual'}); assert.equal(response.status,303);
+ await assert.rejects(access(item.destination));
+ let count=0;
+ const result=await applyQueueSelections(async message => {count++; assert.ok(message.includes(item.id)); assert.ok(message.includes(item.destination)); return true;});
+ assert.equal(result[0].status,'approved'); assert.equal(count,1);
+ const promoted=JSON.parse(await readFile(path.join(item.destination,'manifest.json'),'utf8')); assert.equal(promoted.paths.root,item.destination);
+ const receipt=JSON.parse(await readFile(path.join(item.destination,'asset-curator-review-receipt.json'),'utf8')); assert.deepEqual(receipt.originalManifest,m);
+ assert.equal(await readFile(path.join(item.destination,'ready','ASSET_SOURCE.txt'),'utf8'),'CC0 license');
+ assert.equal(await readFile(path.join(m.paths.ready,'asset.svg'),'utf8'),'<svg onload="alert(1)"></svg>');
+ assert.deepEqual(await applyQueueSelections(async()=>{throw Error('replay')}),[]);
+ await assert.rejects(decideQueuedAsset(item.id,'approve',async()=>true),/already decided/);
+ const second=await queueManifest(await prepared('two'),project);
+ await assert.rejects(decideQueuedAsset(second.id,'approve',async()=>false),/did not confirm/);
+ await writeFile(path.join(second.stagedRoot,'ready','asset.svg'),'changed');
+ await assert.rejects(decideQueuedAsset(second.id,'approve',async()=>true),/changed/);
+ const third=await queueManifest(await prepared('three'),project);
+ await assert.rejects(decideQueuedAsset(third.id,'approve',async()=>{await writeFile(path.join(third.stagedRoot,'ready','asset.svg'),'changed after prompt');return true;}),/changed/);
+ const fourthManifest=await prepared('four'),fourth=await queueManifest(fourthManifest,project);
+ await decideQueuedAsset(fourth.id,'reject',async()=>true);
+ await assert.rejects(access(fourth.stagedRoot)); await access(fourthManifest.paths.manifest);
+ const fifthManifest=await prepared('five'); await symlink(path.join(fourthManifest.paths.ready,'asset.svg'),path.join(fifthManifest.paths.ready,'link.svg'));
+ await assert.rejects(queueManifest(fifthManifest,project),/Symbolic/);
+ const sixth=await queueManifest(await prepared('six'),project);
+ await mkdir(path.dirname(sixth.destination),{recursive:true});
+ await assert.rejects(decideQueuedAsset(sixth.id,'approve',async()=>true),/EEXIST/);
+ const symlinked=await queueManifest(await prepared('symlink-destination'),project);
+ await symlink(path.join(tmp,'profile'),path.dirname(symlinked.destination));
+ await assert.rejects(decideQueuedAsset(symlinked.id,'approve',async()=>true),/Symbolic/);
+ const seventh=await queueManifest(await prepared('seven'),project);
+ let release; const gate=new Promise(r=>release=r);
+ const pending=decideQueuedAsset(seventh.id,'reject',async()=>{await gate; return true;});
+ await new Promise(r=>setTimeout(r,25));
+ await assert.rejects(decideQueuedAsset(seventh.id,'approve',async()=>true),/busy/); release(); await pending;
+ const batchA=await queueManifest(await prepared('batch-a'),project), batchB=await queueManifest(await prepared('batch-b'),project);
+ for (const row of [batchA,batchB]) {
+  const response=await fetch(queue.url,{method:'POST',body:new URLSearchParams({csrf,id:row.id,decision:'reject'}),headers:{Origin:new URL(queue.url).origin},redirect:'manual'});
+  assert.equal(response.status,303);
+ }
+ assert.equal((await listQueue()).selected,2);
+ let batchPrompts=0;
+ assert.equal((await applyQueueSelections(async()=>{batchPrompts++;return true;})).length,1);
+ assert.equal(batchPrompts,1); assert.equal((await listQueue()).selected,1);
+ await applyQueueSelections(async()=>true); assert.equal((await listQueue()).selected,0);
+ console.log('PASS review queue: preservation, provenance, tampering, symlinks, duplicates, no overwrite, replay, concurrency, safe HTML, intent-only CSRF-protected UI and host approval');
+} finally {await rm(tmp,{recursive:true,force:true});}

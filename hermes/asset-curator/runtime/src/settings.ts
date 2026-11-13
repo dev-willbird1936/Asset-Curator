@@ -60,14 +60,15 @@ export async function loadSettings(): Promise<AssetGrabberSettings> {
     const input = JSON.parse(stripBom(await readFile(target, "utf8")));
     if (environmentCredentialsOnly() && input.credentialMode !== "environment") throw new Error("Expected nonsecret profile preferences");
     const settings = normalizeSettings(input);
-    setProjectsRoot(settings.preferences.completed ? settings.preferences.projectsFolder : undefined);
+    setProjectsRoot(settings.preferences.projectsFolder, settings.preferences.accessMode);
     return settings;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
       throw new Error("Cannot read Asset Curator settings; repair the file or use --setup with another settings path.");
     }
-    setProjectsRoot(undefined);
-    return normalizeSettings({});
+    const settings = normalizeSettings({});
+    setProjectsRoot(settings.preferences.projectsFolder, settings.preferences.accessMode);
+    return settings;
   }
 }
 
@@ -87,7 +88,7 @@ export async function saveSettings(input: Partial<AssetGrabberSettings>): Promis
   if (envOnly && [input.assetAdvisor?.apiKey, input.assetAdvisor?.deepseekApiKey, input.assetAdvisor?.customProviderApiKey].some(Boolean)) throw new Error("Environment-only mode does not accept stored API keys; use Hermes approved secret/profile settings");
   const settings = normalizeSettings(input);
   if (envOnly && settings.assetAdvisor.customProviderUrl && (credentialUrl(settings.assetAdvisor.customProviderUrl) || new URL(settings.assetAdvisor.customProviderUrl).search || new URL(settings.assetAdvisor.customProviderUrl).hash)) throw new Error("Environment-only classifier URLs must not contain credentials, query or fragment");
-  const stored = envOnly ? { credentialMode: "environment", assetAdvisor: { provider: settings.assetAdvisor.provider, model: settings.assetAdvisor.model, allowNetworkAiRanking: settings.assetAdvisor.allowNetworkAiRanking }, preferences: settings.preferences, search: settings.search, sources: settings.sources, priorityByCategory: settings.priorityByCategory, customSources: settings.customSources } : settings;
+  const stored = envOnly ? { credentialMode: "environment", assetAdvisor: { provider: settings.assetAdvisor.provider, model: settings.assetAdvisor.model, allowNetworkAiRanking: settings.assetAdvisor.allowNetworkAiRanking }, preferences: { ...settings.preferences, projectsFolder: undefined, accessMode: undefined }, search: settings.search, sources: settings.sources, priorityByCategory: settings.priorityByCategory, customSources: settings.customSources } : settings;
   const target = resolveSettingsPath();
   await mkdir(path.dirname(target), { recursive: true });
   const temporary = `${target}.${randomUUID()}.tmp`;
@@ -97,7 +98,7 @@ export async function saveSettings(input: Partial<AssetGrabberSettings>): Promis
   } finally {
     await rm(temporary, { force: true });
   }
-  setProjectsRoot(settings.preferences.completed ? settings.preferences.projectsFolder : undefined);
+  setProjectsRoot(settings.preferences.projectsFolder, settings.preferences.accessMode);
   return settings;
 }
 
@@ -131,7 +132,9 @@ export function normalizeSettings(input: Partial<AssetGrabberSettings>): AssetGr
       acquisitionMode: ["existing", "create", "both"].includes(preferences?.acquisitionMode ?? "") ? preferences!.acquisitionMode : "both",
       // Settings saved before 0.2.2 have no trigger choice; they keep the previous agent-decides behaviour.
       triggerMode: preferences?.triggerMode === "on-request" ? "on-request" : "auto",
-      projectsFolder: checkedProjectsFolder(preferences?.projectsFolder)
+      accessMode: checkedAccessMode(environmentCredentialsOnly() ? process.env.ASSET_GRABBER_ACCESS_MODE : process.env.ASSET_GRABBER_ACCESS_MODE ?? preferences?.accessMode),
+      // In Hermes, legacy model-written preferences must never grant filesystem access.
+      projectsFolder: checkedProjectsFolder(environmentCredentialsOnly() ? process.env.ASSET_GRABBER_PROJECTS_FOLDER : process.env.ASSET_GRABBER_PROJECTS_FOLDER ?? preferences?.projectsFolder)
     },
     assetAdvisor: {
       ...DEFAULT_SETTINGS.assetAdvisor,
@@ -300,4 +303,10 @@ function cleanOptionalString(value: string | undefined): string | undefined {
 
 function stripBom(value: string): string {
   return value.charCodeAt(0) === 0xfeff ? value.slice(1) : value;
+}
+
+function checkedAccessMode(value: unknown): "hermes" | "full" | "project" | "review" | "no" {
+  if (value === "hermes") return "hermes";
+  if (value === "full" || value === "project" || value === "review") return value;
+  return "no"; // invalid configuration fails closed to Downloads
 }

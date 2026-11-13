@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {mkdtemp,mkdir,writeFile,readFile,rm,readdir} from 'node:fs/promises';
+import os from 'node:os'; import path from 'node:path';
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {ElicitRequestSchema} from '@modelcontextprotocol/sdk/types.js';
+const tmp=await mkdtemp(path.join(os.tmpdir(),'curator-review-mcp-')), home=path.join(tmp,'home'), downloads=path.join(home,'Downloads'), project=path.join(tmp,'project'), profile=path.join(tmp,'profile');
+const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3wAAAABJRU5ErkJggg==','base64');
+const prompts=[]; let answer='accept';
+const client=new Client({name:'review-e2e',version:'1'},{capabilities:{elicitation:{form:{}}}});
+client.setRequestHandler(ElicitRequestSchema,async req=>{prompts.push(req.params.message);return {action:answer,content:answer==='accept'?{}:undefined};});
+try {
+ await Promise.all([mkdir(downloads,{recursive:true}),mkdir(project),mkdir(profile)]);
+ const source=path.join(downloads,'icon.png');await writeFile(source,png);
+ await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('../launch.mjs')],env:{...process.env,HOME:home,USERPROFILE:home,PLUGIN_DATA:profile,ASSET_GRABBER_ACCESS_MODE:'review',ASSET_GRABBER_PROJECTS_FOLDER:project},stderr:'pipe'}));
+ assert.equal((await client.listTools()).tools.length,19);
+ await client.callTool({name:'configure_preferences',arguments:{licensePolicy:'safe',browserEnabled:false,acquisitionMode:'both'}});
+ const input={sourcePath:source,request:'review icon',licenseName:'CC0',formats:['png'],attributionRequired:false};
+ const staged=await client.callTool({name:'prepare_existing_asset',arguments:input});assert.notEqual(staged.isError,true,JSON.stringify(staged));
+ const queued=staged.structuredContent;assert.equal(queued.pending,1);assert.equal(queued.review.status,'pending');assert.equal(queued.paths,undefined);assert.equal(queued.review.manifestPath,undefined);assert.equal(prompts.length,0);assert.deepEqual(await readdir(project),[]);
+ const url=queued.reviewUrl;const html=await (await fetch(url)).text();assert.match(html,/1 pending/);assert.match(html,/data:image\/png;base64/);assert.match(html,/Yes: request approval/);assert.match(html,/host confirmation required/);
+ const csrf=html.match(/name="csrf" value="([^"]+)"/)[1];
+ const post=await fetch(url,{method:'POST',redirect:'manual',headers:{Origin:new URL(url).origin,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrf,id:queued.review.id,decision:'approve'})});assert.equal(post.status,303);assert.deepEqual(await readdir(project),[]);assert.equal(prompts.length,0);
+ const applied=await client.callTool({name:'apply_review_queue',arguments:{}});assert.notEqual(applied.isError,true,JSON.stringify(applied));assert.equal(prompts.length,1);
+ const approved=applied.structuredContent.items.find(x=>x.id===queued.review.id);assert.equal(approved.status,'approved');assert.ok(approved.destination.startsWith(path.join(project,'asset-curator')));
+ const manifestResult=await client.callTool({name:'get_asset_manifest',arguments:{manifestPath:approved.manifestPath}});assert.notEqual(manifestResult.isError,true,JSON.stringify(manifestResult));
+ const manifest=manifestResult.structuredContent;assert.equal(manifest.paths.root,approved.destination);assert.deepEqual(await readFile(path.join(manifest.paths.ready,'icon.png')),png);assert.deepEqual(await readFile(source),png);
+ const second=await client.callTool({name:'prepare_existing_asset',arguments:{...input,request:'reject icon'}});assert.notEqual(second.isError,true);const rejectId=second.structuredContent.review.id;
+ answer='decline';const declined=await client.callTool({name:'review_asset',arguments:{id:rejectId,decision:'approve'}});assert.equal(declined.isError,true);assert.equal((await client.callTool({name:'get_review_queue',arguments:{}})).structuredContent.pending,1);
+ answer='accept';const rejected=await client.callTool({name:'review_asset',arguments:{id:rejectId,decision:'reject'}});assert.notEqual(rejected.isError,true);assert.equal(rejected.structuredContent.status,'rejected');assert.deepEqual(await readFile(source),png);
+ console.log('PASS: MCP queue staging, HTML PNG preview/pending count, buttons intent-only, host-confirmed promotion, usable file and rebased manifest, declined approval, rejection, originals preserved');
+} finally {await client.close();await rm(tmp,{recursive:true,force:true});}

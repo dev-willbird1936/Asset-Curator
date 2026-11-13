@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { z } from "zod";
 import { generateAsset, generatePixelRecipe, grabAsset, prepareExistingAsset } from "./prepare.js";
 import { providerNames, searchAssetsWithDiagnostics } from "./providers.js";
@@ -11,7 +12,9 @@ import { generationInputSchema, listGeneratorPresets } from "./generation.js";
 import { createGeneratorProject, generatorHelp, generatorProjectSchema, GENERATOR_IDS, listGeneratorRecipes } from "./generator-recipes.js";
 import { isSourceEnabled, loadSettings, redactSettings, sourcePriorityBoost } from "./settings.js";
 import { configurePreferences, configureClassifier, classifierSchema, preferencesSchema, runSetupCli, setupStatus, triggerKey, TRIGGER_GUIDANCE, TRIGGER_TAG } from "./setup.js";
-import { assertWithinSafeRoot, isInsidePath, projectsRootFolder, resolvePhysicalPath } from "./util.js";
+import { runWithAccessPolicy } from "./access-policy.js";
+import { queueManifest, listQueue, decideQueuedAsset, applyQueueSelections } from "./review-queue.js";
+import { assertWithinSafeRoot, assetOutputRoot, isInsidePath, resolvePhysicalPath } from "./util.js";
 // Public project owner marker: dev-willbird1936.
 const categorySchema = z.enum(["2D", "3D", "Animation", "Audio", "Music", "Textures", "UI", "VFX", "Unknown"]);
 // The user's saved trigger choice is stated in the server instructions and on every asset tool,
@@ -19,24 +22,73 @@ const categorySchema = z.enum(["2D", "3D", "Animation", "Audio", "Music", "Textu
 const startupKey = await loadSettings().then(triggerKey, () => "unset");
 const startupTrigger = TRIGGER_GUIDANCE[startupKey];
 const ENTRY_TOOLS = new Set(["search_assets", "generate_asset", "list_generators"]);
-const OUTPUT_DIR_HELP = "Where to save. Relative paths resolve inside the plugin's own asset folder, NOT the user's project. To save straight into a project, pass an absolute path inside the projects folder the user chose in setup (get_setup shows preferences.projectsFolder); anything else is refused.";
+const OUTPUT_DIR_HELP = "Where to save. Relative paths use the user-selected output folder: project mode defaults to <workspace>/asset-curator; review mode stages in Downloads; no mode requires approval to download/use assets. Full and Hermes-managed modes have no additional plugin path boundary. get_setup reports accessMode; only the user can change access in plugin settings.";
 function useInProject(ready) {
-    const root = projectsRootFolder();
-    if (root && isInsidePath(root, resolvePhysicalPath(ready)))
-        return "Saved inside the user's projects folder: load the readyFiles from paths.ready directly and keep ASSET_SOURCE.txt and any licence files with them.";
-    return root
-        ? `These files are in the plugin's own asset folder, not the project. To save straight into the project, call again with outputDir set to an absolute path inside ${root}. Otherwise copy the readyFiles you use, with ASSET_SOURCE.txt and any licence files, into the project.`
-        : "These files are in the plugin's own asset folder, not the project. Copy the readyFiles you use, with ASSET_SOURCE.txt and any licence files, into the project (for example with the terminal). To let the plugin save straight into projects, the user can choose a projects folder in setup.";
+    return `Prepared assets are saved at ${ready}. Load readyFiles from paths.ready and keep ASSET_SOURCE.txt and licence files with them. Filesystem access is controlled by the user's plugin settings, never configure_preferences.`;
 }
-const SETUP_TOOLS = new Set(["get_setup", "configure_preferences", "configure_classifier"]);
+const SETUP_TOOLS = new Set(["get_setup", "configure_preferences", "configure_classifier", "get_review_queue", "review_asset", "apply_review_queue"]);
 const server = new McpServer({
     name: "asset-curator-mcp",
-    version: "0.2.6"
+    version: "0.3.0"
 }, {
     instructions: startupTrigger + " When you do use it: start with get_setup. If required, ask the user the setup questions once and call configure_preferences only with their answers; never infer consent. For existing assets use search_assets/grab_asset; for creation use list_generators then generate_asset, or get_generator_help and render_pixel_recipe. For advanced tools create_generator_project writes editable source only: adapt it, explicitly execute with an approved runtime, inspect the result, then prepare_existing_asset(origin=created) with actual rights. Never claim a starter is a rendered match for arbitrary intent. No automatic dependency/model installs. ready/ is prepared output. Respect saved acquisition mode, license policy, and browser consent. Use the credential route reported by get_setup; never put API keys in chat or read other applications' credential stores. Preserve manifests and attribution. No automatic login, payment, captcha solving, or accepting terms."
 });
+const approvalRequestContext = new AsyncLocalStorage();
+async function requestHostApproval(message) {
+    const signal = approvalRequestContext.getStore();
+    if (signal?.aborted)
+        return false;
+    if (!server.server.getClientCapabilities()?.elicitation?.form)
+        return false;
+    try {
+        const result = await server.server.elicitInput({ mode: "form", message, requestedSchema: { type: "object", properties: {} } }, { timeout: 120_000, signal });
+        return result.action === "accept" && !signal?.aborted;
+    }
+    catch {
+        return false;
+    }
+}
 const registerTool = server.registerTool.bind(server);
-server.registerTool = (name, config, handler) => registerTool(name, SETUP_TOOLS.has(name) ? (name === "get_setup" && startupKey === "auto" ? { ...config, description: "[" + TRIGGER_TAG.auto + " Call this first.] " + (config.description ?? "") } : config) : { ...config, description: "[" + (ENTRY_TOOLS.has(name) ? startupTrigger : TRIGGER_TAG[startupKey]) + "] " + (config.description ?? "") }, handler);
+server.registerTool = (name, config, handler) => registerTool(name, SETUP_TOOLS.has(name) ? (name === "get_setup" && startupKey === "auto" ? { ...config, description: "[" + TRIGGER_TAG.auto + " Call this first.] " + (config.description ?? "") } : config) : { ...config, description: "[" + (ENTRY_TOOLS.has(name) ? startupTrigger : TRIGGER_TAG[startupKey]) + "] " + (config.description ?? "") }, async (input, extra) => {
+    try {
+        return await approvalRequestContext.run(extra.signal, () => runWithAccessPolicy(name, input, requestHostApproval, async (safe) => {
+            const result = await handler(safe, extra);
+            const settings = await loadSettings();
+            if (settings.preferences.accessMode === "review" && !result?.isError && ["grab_asset", "prepare_existing_asset", "generate_asset", "render_pixel_recipe"].includes(name)) {
+                const data = result.structuredContent ?? (result.content?.[0]?.text ? JSON.parse(result.content[0].text) : undefined);
+                if (data?.paths?.root && isInsidePath(assetOutputRoot(), resolvePhysicalPath(data.paths.root))) {
+                    if (!settings.preferences.projectsFolder)
+                        throw new Error("Choose the review project workspace yourself in plugin settings before queuing assets");
+                    const persisted = JSON.parse(await readFile(data.paths.manifest, "utf8"));
+                    const item = await queueManifest(persisted, settings.preferences.projectsFolder);
+                    const queue = await listQueue();
+                    return toolJson({ review: publicReviewItem(item), pending: queue.pending, reviewUrl: queue.url, note: "Preview only: do not use this asset in project code until approved. Open the Asset Review Queue, select Yes/No, then ask Hermes to apply selections and confirm its prompt." });
+                }
+            }
+            return result;
+        }));
+    }
+    catch (error) {
+        return { isError: true, content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }] };
+    }
+});
+function publicReviewItem(item) {
+    return { id: item.id, title: item.title, status: item.status, destination: item.destination,
+        manifestPath: item.status === "approved" ? path.join(item.destination, item.manifestName) : undefined };
+}
+server.registerTool("get_review_queue", {
+    title: "Asset Review Queue", description: "Show preview-only queued assets, pending count and local HTML review page. Yes/No buttons select intentions only; apply_review_queue asks real host confirmation before moving or discarding staged copies. Original downloads are kept.",
+    annotations: { readOnlyHint: true, openWorldHint: false }, inputSchema: z.object({}).strict()
+}, async () => { const queue = await listQueue(); return toolJson({ pending: queue.pending, selected: queue.selected, reviewUrl: queue.url, items: queue.items.map(publicReviewItem) }); });
+server.registerTool("review_asset", {
+    title: "Confirm One Queued Asset", description: "Request genuine host approval to import a specific reviewed asset into the bound project, or discard its staged queue copy. A model-supplied decision is an intention, never approval. Original downloads remain intact.",
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
+    inputSchema: z.object({ id: z.string().uuid(), decision: z.enum(["approve", "reject"]) }).strict()
+}, async ({ id, decision }) => toolJson(publicReviewItem(await decideQueuedAsset(id, decision, requestHostApproval))));
+server.registerTool("apply_review_queue", {
+    title: "Apply Review Selections", description: "Apply Yes/No intentions selected in the HTML queue, asking the host to confirm each exact asset and destination. No browser click alone authorizes filesystem changes.",
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false }, inputSchema: z.object({}).strict()
+}, async () => { const results = await applyQueueSelections(requestHostApproval), queue = await listQueue(); return toolJson({ results, remainingSelected: queue.selected, pending: queue.pending, items: queue.items.map(publicReviewItem) }); });
 server.registerTool("get_setup", {
     title: "First-use Setup",
     description: "Read saved first-use preferences (including whether to trigger automatically or only on request) and the one-time user questions. No network calls or secrets. Ask only when required is true.",
@@ -306,7 +358,7 @@ server.registerTool("prepare_existing_asset", {
     description: "Copy and prepare a local asset into pack/ready output with a manifest and engine readiness notes. Writes files; overwrite can replace existing output.",
     annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     inputSchema: z.object({
-        sourcePath: z.string().min(1).describe("Local file or folder to prepare."),
+        sourcePath: z.string().min(1).describe("Local file or folder to copy and prepare; project mode can also import from Downloads without changing or deleting the source."),
         origin: z.enum(["existing", "created"]).optional().describe("Existing downloaded/local asset, or code-created by an external generator. Must match saved acquisition policy; defaults existing."),
         outputDir: z.string().optional().describe(OUTPUT_DIR_HELP),
         request: z.string().optional().describe("Asset intent/name used for selection and manifest."),
@@ -346,7 +398,7 @@ server.registerTool("get_asset_manifest", {
     if (path.basename(resolvedManifestPath) !== "asset-grabber-manifest.json") {
         throw new Error("manifestPath must point to asset-grabber-manifest.json");
     }
-    assertWithinSafeRoot(resolvedManifestPath, "manifest path");
+    assertWithinSafeRoot(resolvedManifestPath, "manifest path", true);
     const manifest = JSON.parse(await readFile(resolvedManifestPath, "utf8"));
     return {
         content: [{ type: "text", text: JSON.stringify(manifest, null, 2) }],

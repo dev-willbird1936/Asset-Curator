@@ -41,7 +41,7 @@ async function pngSize(file) {
 export async function analyzeProjectStyle(projectPath) {
     if (!path.isAbsolute(projectPath))
         throw new Error("projectPath must be an absolute path to the project folder");
-    assertWithinSafeRoot(projectPath, "project path");
+    assertWithinSafeRoot(projectPath, "project path", true);
     if (!(await stat(projectPath)).isDirectory())
         throw new Error("projectPath must be a folder");
     const files = [];

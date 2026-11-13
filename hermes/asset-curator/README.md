@@ -2,7 +2,7 @@
 
 **Find a usable asset or create it from code, with policy and provenance.** This is a real local MCP application, not a prompt-only plugin: indexed catalogs, bounded downloads/extraction, optional browser retrieval, optional relevance checks, programmable pixel art, parameter synthesis and editable code projects.
 
-Version: **0.2.6**. Compatibility target: **Hermes >=0.23.1**, Node >=20.18.1 with npm (locked Cheerio/Undici floor). Verified on Windows with Node 24.16.0 and Hermes' PM-managed Node 26.12.1; macOS/Linux were not exercised in this run. Source is readable TypeScript plus compiled plain JavaScript; no executable binaries, model weights or node_modules are committed. Catalog admission is pending. Install the exact 40-character commit named in the catalog entry; a public repository alone is not an accepted listing.
+Version: **0.3.0**. Compatibility target: **Hermes >=0.23.1**, Node >=20.18.1 with npm (locked Cheerio/Undici floor). Earlier releases were verified on Windows. This permission revision is tested in a fresh Linux Hermes profile; Windows/macOS regression coverage is still pending. Source is readable TypeScript plus compiled plain JavaScript; no executable binaries, model weights or node_modules are committed. Catalog admission is pending. Install the exact 40-character commit named in the catalog entry; a public repository alone is not an accepted listing.
 
 ## Install (explicit once)
 
@@ -10,7 +10,7 @@ Version: **0.2.6**. Compatibility target: **Hermes >=0.23.1**, Node >=20.18.1 wi
 2. In that installed plugin directory, run `node setup.mjs` (Windows: `setup.bat`). This explicitly installs the reviewed npm lockfile with lifecycle scripts disabled. It does not download a browser, model, Blender, Material Maker or Remotion.
 3. Enable `hermes plugins enable asset-curator`, then reload MCP or start a new session.
 
-Run setup again after an update if dependencies are absent. Setup is never invoked by discovery/launch and never self-updates code. An incomplete install fails with the exact recovery command instead of fetching packages behind an agent's back. A developer rebuilds the local source bundle with `npm run build && node scripts/build-hermes-plugin.mjs` from the repository root; that build command is not part of installed runtime behavior.
+Run setup again after an update if dependencies are absent. Setup is never invoked by discovery/launch and never self-updates code. An incomplete install fails with the exact recovery command instead of fetching packages behind an agent's back. Developer checks run from runtime/: `npm run check` and `npm run test:access`. Changed TypeScript must be compiled to the corresponding lib JavaScript and BUILD.json hashes refreshed before launch; no compilation occurs at runtime.
 
 The portable package registers one stdio server, `asset-curator`, with **untrusted** trust. Hermes asks before non-readonly asset/preference writes; unattended calls fail closed when approval is required. Explicitly enabled classifier calls can also occur during metadata searches and may incur charges: host read/write approval is not a spending policy. Choose Once/Session/Always through Hermes, never through plugin auto-approval. No hooks, middleware, tool overrides, OAuth client, login backend, telemetry or background service is registered.
 
@@ -30,7 +30,7 @@ Then:
 - **Advanced:** create_generator_project writes complete editable source for eight libraries, never a fake rendered match. Adapt the starter, explicitly execute with an approved optional runtime, inspect actual output, then prepare_existing_asset(origin=created) with its real license/input rights.
 - Keep attribution, notices, manifests and uncertainty. Metadata-only relevance is not image verification. Do not execute scripts from downloaded packs or enable Blender auto-run.
 
-Setup also asks when the agent should use the plugin: `auto` (whenever it judges a task needs assets, the default) or `on-request` (only when you name Asset Curator or directly ask for an asset). The choice reaches tool descriptions from the next session. Setup can also record a projects folder you choose; the plugin may then save assets straight into a project inside it (pass an absolute `outputDir`). Without one, files stay in the plugin's own folder and each result says how to copy them into the project. A drive root, your whole home folder, or a folder containing the Hermes profile is refused.
+Setup also asks when the agent should use the plugin: `auto` or `on-request`. For filesystem permissions, choose **Hermes-managed** or **set up separately** in the user-controlled plugin settings (standalone: interactive `--setup`), then restart. Separate choices are **full**, **project** (recommended), **review** (Asset Review Queue), and **no** (Downloads-only, suggest until approved). Until a choice is configured, no mode applies. Model tools cannot change this choice or the project workspace.
 
 When you work inside a project, `search_assets` accepts `projectPath`. The plugin reads the project's rendering code, asset files and docs (not pictures) to work out its art style. Results whose source declares a style that conflicts with the wanted one (named in the request, or otherwise the project's) are set aside in `offStyle`, and the response includes the project's colours for drawing matching sprites.
 
@@ -49,7 +49,7 @@ Optional advanced approved variables: ASSET_GRABBER_ADVISOR_PROVIDER/MODEL/URL c
 ## Behavior and limitations (install disclosures)
 
 - **Network:** contacts selected public asset/catalog/CDN services and caches public metadata. Optional selected API classifier receives bounded candidate metadata, not local files/keys; Parallel may retrieve clean public pages and returns citations. Charges vary by provider. Untrusted non-readonly calls require Hermes approval. No paid model call is required for core use.
-- **Filesystem:** reads bundled source/catalogs and explicitly supplied asset files inside the configured safe root; writes prepared outputs, cache, manifests and nonsecret profile settings. Owned output is staged, foreign folders are not overwritten, changed inputs get variants, failed refreshes preserve edits. Dependencies/notices can exceed the ready-media selection cap.
+- **Filesystem:** reads bundled source/catalogs and explicitly supplied asset files within the user-selected access mode; writes prepared outputs, cache, manifests and nonsecret profile settings. Owned output is staged, foreign folders are not overwritten, changed inputs get variants, failed refreshes preserve edits. Dependencies/notices can exceed the ready-media selection cap.
 - **Processes:** approved browser-assisted grabs launch a fresh owned installed Chrome/Edge context for bounded native downloads and close it. They never adopt signed-in profiles, log in, buy, solve CAPTCHAs, accept terms or bypass access controls. External generator PROJECTS are written only; this server does not secretly install or execute them. The explicit setup command invokes npm. No daemon/scheduled job.
 - **Rights:** known-license filtering is conservative, not legal advice. Pixel Search's upstream/third-party rights caveats require explicit any mode. Openverse Freesound previews are labeled previews. SpriteKiln showcase media is all-rights-reserved and excluded. Remotion's optional runtime has Free/Company eligibility terms, not unconditional MIT; heavyweight optional runtimes may be absent.
 - **Reliability:** actual Node generation/Pixelbolt, PixelFX torch, SpriteKiln CPU idle, direct HDRI/font/icon/Openverse/Pixel retrieval and Quaternius/Drive browser flow have local test evidence. Three heavyweight generator runtimes remain optional/unexecuted unless later verification says otherwise; do not confuse source/syntax validation with rendered media.
@@ -60,3 +60,25 @@ Optional advanced approved variables: ASSET_GRABBER_ADVISOR_PROVIDER/MODEL/URL c
 `hermes plugins doctor /path/to/plugin --ci` and `hermes plugins validate /path/to/plugin --install-deps` use Hermes' real validation, with isolated test home for development. MCP smoke tests must also connect to launch.mjs and invoke the tools, not merely parse these manifests.
 
 See the root README and VALIDATION.md for the checks performed and their limits. No commit, push, PR, X post or form submission is performed by this package.
+
+### User-controlled permissions and one-off requests
+
+Set `ASSET_GRABBER_ACCESS_MODE` yourself through Hermes plugin settings or the profile `.env`:
+
+- `hermes`: use Hermes' configured tool-approval policy. This does **not** inherit a filesystem sandbox: Hermes exposes no filesystem-grant API to stdio MCP servers. The plugin adds no path boundary in this mode; OS/process isolation and Hermes tool approvals remain in force.
+- `full`: no additional plugin path boundary. It cannot bypass OS permissions, host approvals, licensing, or browser access controls. Standalone setup explicitly warns before enabling it.
+- `project` (recommended separate mode): read/change files only within the workspace you select in `ASSET_GRABBER_PROJECTS_FOLDER`. Asset output defaults to its `asset-curator/` folder. Downloads is a read-only source for importing existing assets. Symlinks cannot extend the workspace boundary.
+- `review`: prepare selected assets in Downloads and present an **Asset Review Queue** with previews and a pending count. Yes/No buttons select intentions only. Return to Hermes and ask to apply selections; a real host prompt confirms the exact asset, content hash and destination before import or discard. This two-step flow is deliberate: Hermes cannot reliably route approvals from browser clicks between active tool calls. Approved bundles go to `<workspace>/asset-curator/<id>/bundle`, with rebased manifests and a review receipt. Rejection discards only queue-owned staged copies; original downloads and preparation caches remain.
+- `no`: suggest assets without automatic download or project use. A download or other materialization asks for host approval and defaults to Downloads. If you request use in a project, the tool asks for approval of that exact one-off destination instead of silently widening the saved mode.
+
+A model-written `approved` flag or a quoted user instruction is never proof of consent. One-off exceptions use MCP form elicitation during the originating tool call, supported by Hermes >=0.23.1. Decline, cancel, timeout, missing capability or an unavailable approver means no asset action. Approval applies only to the frozen invocation; the saved mode does not change. Hermes decides who can approve: shared gateway installations should configure `approvals.approvers` for the intended owner(s).
+
+Project/review modes require an existing absolute workspace; invalid paths fail closed. `configure_preferences` rejects `projectsFolder` and `accessMode` even when null or empty. Hermes ignores legacy access grants in preferences.json. The access mode, workspace and Custom classifier URL use `type: secret` only to ensure Hermes exports their environment values; mode/path are configuration, not credentials. Restart after user settings changes.
+
+### Review UI and limits
+
+The review page is a temporary, loopback-only HTTP endpoint opened on demand by the running plugin. It uses a random URL, same-origin/CSRF checks, escaped text and restrictive content policy. It previews bounded PNG/JPEG/WebP files; active SVG/HTML is not embedded, and 3D/audio preview is not claimed. It stops when the plugin process exits; selections must be made again after restart. The page never changes project files by itself.
+
+Queue items are bounded (256 MiB and 10,000 entries per bundle, 200 retained items). Hashes are checked again after approval. Existing destinations are never overwritten. Interrupted operations leave locks/reservations for deliberate host recovery rather than risking duplicate writes. Approval is not licence clearance or a claim that an asset is visually suitable; inspect the preview and preserve the supplied rights/provenance.
+
+A Hermes forced reinstall removes runtime/node_modules. Rerun the explicit `node setup.mjs` dependency step after reinstalling/updating; launch deliberately does not install anything.
