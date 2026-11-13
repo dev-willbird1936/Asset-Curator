@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+const tmp = await mkdtemp(path.join(os.tmpdir(),'curator-import-'));
+const workspace=path.join(tmp,'project'), home=path.join(tmp,'home'), downloads=path.join(home,'Downloads');
+const data=path.join(tmp,'profile'), source=path.join(downloads,'test-icon.svg');
+const svg='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#36c"/></svg>';
+const client=new Client({name:'downloads-import-regression',version:'1'});
+try {
+ await Promise.all([mkdir(workspace),mkdir(downloads,{recursive:true}),mkdir(data)]);
+ await writeFile(source,svg);
+ await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve('../launch.mjs')],env:{...process.env,HOME:home,USERPROFILE:home,PLUGIN_DATA:data,ASSET_GRABBER_ACCESS_MODE:'project',ASSET_GRABBER_PROJECTS_FOLDER:workspace},stderr:'pipe'}));
+ const setup=await client.callTool({name:'configure_preferences',arguments:{licensePolicy:'safe',browserEnabled:false,acquisitionMode:'both'}}); assert.notEqual(setup.isError,true);
+ const input={sourcePath:source,request:'test icon',formats:['svg'],licenseName:'CC0',attributionRequired:false};
+ const denied=await client.callTool({name:'prepare_existing_asset',arguments:{...input,outputDir:downloads}}); assert.equal(denied.isError,true,'Downloads must remain read-only in project mode');
+ const result=await client.callTool({name:'prepare_existing_asset',arguments:input}); assert.notEqual(result.isError,true,JSON.stringify(result));
+ const manifest=result.structuredContent ?? JSON.parse(result.content[0].text);
+ assert.ok(manifest.paths.ready.startsWith(path.join(workspace,'asset-curator')+path.sep));
+ assert.ok(manifest.readyFiles.includes('test-icon.svg'));
+ const ready=path.join(manifest.paths.ready,'test-icon.svg');
+ assert.equal(await readFile(ready,'utf8'),svg,'prepared asset remains usable');
+ assert.equal(await readFile(source,'utf8'),svg,'source download is preserved');
+ assert.match(await readFile(path.join(manifest.paths.ready,'ASSET_SOURCE.txt'),'utf8'),/CC0/);
+ const readback=await client.callTool({name:'get_asset_manifest',arguments:{manifestPath:manifest.paths.manifest}}); assert.notEqual(readback.isError,true); assert.deepEqual(readback.structuredContent.readyFiles,manifest.readyFiles);
+ const reuse=await client.callTool({name:'prepare_existing_asset',arguments:{...input,sourcePath:ready,request:'reused icon',outputDir:'reused'}}); assert.notEqual(reuse.isError,true,JSON.stringify(reuse));
+ const outside=path.join(tmp,'outside.svg'); await writeFile(outside,svg); await symlink(outside,path.join(downloads,'escape.svg'));
+ const escaped=await client.callTool({name:'prepare_existing_asset',arguments:{...input,sourcePath:path.join(downloads,'escape.svg')}}); assert.equal(escaped.isError,true,'Downloads symlink must not expose unrelated files');
+ console.log('PASS: MCP import from Downloads into project/assets, exact SVG bytes, licence pointer, manifest read-back, prepared-asset reuse, preserved original, Downloads write denial, symlink escape denial');
+} finally {await client.close(); await rm(tmp,{recursive:true,force:true});}

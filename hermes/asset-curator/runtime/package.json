@@ -1,6 +1,6 @@
 {
   "name": "asset-grabber-mcp",
-  "version": "0.2.6",
+  "version": "0.3.0",
   "description": "Policy-aware MCP asset curation and code creation: search, download, prepare and generate with provenance.",
   "type": "module",
   "license": "MIT",
@@ -31,7 +31,10 @@
   "bin": {
     "asset-grabber-mcp": "./lib/index.js"
   },
-  "scripts": {},
+  "scripts": {
+    "check": "tsc --noEmit --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck src/*.ts",
+    "test:access": "node tests/access-boundary.mjs && node tests/downloads-import.mjs && node tests/host-approval.mjs && node tests/review-queue.mjs && node tests/review-mcp.mjs"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
     "cheerio": "^1.1.2",

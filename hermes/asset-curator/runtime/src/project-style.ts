@@ -55,7 +55,7 @@ async function pngSize(file: string): Promise<[number, number] | undefined> {
 
 export async function analyzeProjectStyle(projectPath: string): Promise<ProjectStyle> {
   if (!path.isAbsolute(projectPath)) throw new Error("projectPath must be an absolute path to the project folder");
-  assertWithinSafeRoot(projectPath, "project path");
+  assertWithinSafeRoot(projectPath, "project path", true);
   if (!(await stat(projectPath)).isDirectory()) throw new Error("projectPath must be a folder");
   const files: string[] = [];
   const walk = async (dir: string, depth: number): Promise<void> => {

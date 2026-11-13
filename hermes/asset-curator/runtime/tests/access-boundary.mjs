@@ -1,0 +1,68 @@
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, readFile, writeFile, rm, symlink } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { configurePreferences, preferencesSchema, setupStatus } from '../lib/setup.js';
+import { loadSettings, saveSettings } from '../lib/settings.js';
+import { assertWithinSafeRoot, resolveOutputDir } from '../lib/util.js';
+const tmp = await mkdtemp(path.join(os.tmpdir(), 'curator-access-'));
+const old = {...process.env};
+try {
+ process.env.HOME = path.join(tmp,'home');
+ process.env.USERPROFILE = process.env.HOME;
+ const workspace=path.join(tmp,'project'), outside=path.join(tmp,'outside');
+ await Promise.all([mkdir(workspace),mkdir(outside),mkdir(path.join(process.env.HOME,'Downloads'),{recursive:true})]);
+ process.env.ASSET_GRABBER_CREDENTIAL_MODE='environment';
+ process.env.ASSET_GRABBER_SETTINGS_PATH=path.join(tmp,'profile','preferences.json');
+ process.env.ASSET_GRABBER_SAFE_ROOT=path.join(tmp,'internal');
+ const prefs={licensePolicy:'safe',browserEnabled:false,acquisitionMode:'both',completed:true,projectsFolder:outside,accessMode:'full'};
+ await mkdir(path.dirname(process.env.ASSET_GRABBER_SETTINGS_PATH));
+ await writeFile(process.env.ASSET_GRABBER_SETTINGS_PATH,JSON.stringify({credentialMode:'environment',preferences:prefs}));
+ let s=await loadSettings();
+ assert.equal(s.preferences.accessMode,'no'); assert.equal(s.preferences.projectsFolder,undefined);
+ assert.ok(resolveOutputDir().startsWith(path.join(process.env.HOME,'Downloads')));
+ assert.throws(()=>assertWithinSafeRoot(outside,'write'));
+ assert.equal(preferencesSchema.shape.projectsFolder,undefined);
+ assert.equal(preferencesSchema.shape.accessMode,undefined);
+ const input={licensePolicy:'safe',browserEnabled:false,acquisitionMode:'both'};
+ for (const mode of ['environment','standalone']) {
+  process.env.ASSET_GRABBER_CREDENTIAL_MODE=mode;
+  for (const value of [outside,null,'',undefined]) await assert.rejects(configurePreferences({...input,projectsFolder:value}),/not set by this tool|cannot change either/);
+  await assert.rejects(configurePreferences({...input,accessMode:'full'}),/cannot change either/);
+ }
+ process.env.ASSET_GRABBER_CREDENTIAL_MODE='environment';
+ process.env.ASSET_GRABBER_ACCESS_MODE='project';
+ process.env.ASSET_GRABBER_PROJECTS_FOLDER=workspace;
+ s=await loadSettings();
+ assert.equal(s.preferences.accessMode,'project');
+ assert.equal(resolveOutputDir('ready'),path.join(workspace,'asset-curator','ready'));
+ assertWithinSafeRoot(path.join(workspace,'main.js'),'read',true);
+ assertWithinSafeRoot(path.join(workspace,'main.js'),'write');
+ assert.equal(resolveOutputDir('../escape'),path.join(workspace,'escape'));
+ assert.throws(()=>resolveOutputDir('../../escape'));
+ assert.throws(()=>assertWithinSafeRoot(outside,'read',true));
+ await configurePreferences(input);
+ const stored=JSON.parse(await readFile(process.env.ASSET_GRABBER_SETTINGS_PATH,'utf8'));
+ assert.equal(stored.preferences.projectsFolder,undefined); assert.equal(stored.preferences.accessMode,undefined);
+ await symlink(outside,path.join(workspace,'asset-curator'),'dir');
+ assert.throws(()=>resolveOutputDir('ready'),/must not link outside/);
+ await rm(path.join(workspace,'asset-curator'));
+ await symlink(workspace,path.join(workspace,'asset-curator'),'dir');
+ assert.throws(()=>resolveOutputDir('ready'),/must not link outside/);
+ await rm(path.join(workspace,'asset-curator'));
+ process.env.ASSET_GRABBER_ACCESS_MODE='full'; await loadSettings();
+ assertWithinSafeRoot(outside,'write'); assert.equal(resolveOutputDir(outside),outside);
+ delete process.env.ASSET_GRABBER_ACCESS_MODE; await loadSettings(); assert.throws(()=>assertWithinSafeRoot(outside,'write'));
+ process.env.ASSET_GRABBER_ACCESS_MODE='typo'; await loadSettings(); assert.throws(()=>assertWithinSafeRoot(outside,'write'));
+ process.env.ASSET_GRABBER_ACCESS_MODE='project'; delete process.env.ASSET_GRABBER_PROJECTS_FOLDER; await loadSettings(); assert.throws(()=>resolveOutputDir(),/requires a user-selected/);
+ delete process.env.ASSET_GRABBER_ACCESS_MODE; process.env.ASSET_GRABBER_CREDENTIAL_MODE='standalone';
+ await saveSettings({preferences:{...prefs,projectsFolder:workspace,accessMode:'project'}}); await configurePreferences(input);
+ assert.equal((await loadSettings()).preferences.accessMode,'project');
+ const plugin=JSON.parse(await readFile(new URL('../../plugin.json',import.meta.url),'utf8'));
+ const fields=plugin.extensions['com.nousresearch.hermes'].config_schema;
+ for(const key of ['custom_url','projects_folder','access_mode']) assert.equal(fields[key].type,'secret');
+ console.log('PASS: model rejection, legacy migration, modes, traversal/symlink boundaries, revocation, persistence, and settings wiring');
+} finally {
+ for(const key of Object.keys(process.env)) if(!(key in old)) delete process.env[key];
+ Object.assign(process.env,old); await rm(tmp,{recursive:true,force:true});
+}

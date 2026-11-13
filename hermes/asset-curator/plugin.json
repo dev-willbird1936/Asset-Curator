@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "asset-curator",
-  "version": "0.2.6",
+  "version": "0.3.0",
   "description": "Find usable assets or create them from code, with saved license/browser/acquisition policy, optional classifier and preserved provenance.",
   "author": {
     "name": "dev-willbird1936",
@@ -74,10 +74,22 @@
           "label": "Optional custom classifier key"
         },
         "custom_url": {
-          "type": "string",
+          "type": "secret",
           "env": "ASSET_GRABBER_ADVISOR_URL",
           "label": "Optional custom classifier URL",
           "description": "OpenAI-compatible chat/completions endpoint for the custom classifier (HTTPS, or localhost). Receives the custom classifier key, so only you set it here; the agent cannot change it."
+        },
+        "projects_folder": {
+          "type": "secret",
+          "env": "ASSET_GRABBER_PROJECTS_FOLDER",
+          "label": "Project workspace (project or review mode)",
+          "description": "Existing absolute workspace. Project mode can read/change files only here, with assets defaulting to asset-curator/. Review mode promotes approved assets there. User-set only; restart after changes."
+        },
+        "access_mode": {
+          "type": "secret",
+          "env": "ASSET_GRABBER_ACCESS_MODE",
+          "label": "Permissions: hermes, or separate full / project / review / no",
+          "description": "Choose hermes to use host tool approvals, not an inherited filesystem sandbox. Separate project (recommended) limits file changes to one workspace and outputs to asset-curator/. review stages an Asset Review Queue for host-confirmed promotion. no suggests only; downloads/use require approval. full removes plugin path limits, not OS or host safeguards. Until chosen, no mode applies. User-set only; restart after changes."
         }
       }
     }

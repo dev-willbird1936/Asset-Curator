@@ -1,4 +1,6 @@
 import path from "node:path";
+import os from "node:os";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { lstatSync, realpathSync } from "node:fs";
 import { rename } from "node:fs/promises";
 const STOP_WORDS = new Set([
@@ -74,7 +76,7 @@ export function tokenize(value) {
     return [...tokens];
 }
 export function resolveOutputDir(outputDir) {
-    const resolved = path.resolve(outputDir ?? process.env.ASSET_GRABBER_OUTPUT_DIR ?? "assets-grabbed");
+    const resolved = path.resolve(assetOutputRoot(), outputDir ?? "assets-grabbed");
     assertWithinSafeRoot(resolved, "output directory");
     return resolved;
 }
@@ -123,22 +125,56 @@ export function hasAncestorTraversal(filePath) {
     const normalized = filePath.replace(/\\/g, "/");
     return normalized.split("/").some((part) => part === "..");
 }
-// The projects folder the user explicitly chose in setup: a second allowed boundary, nothing wider.
+// Access is configured only by the user's settings route, never by a model tool.
 let projectsRoot;
-export function setProjectsRoot(folder) { projectsRoot = folder ? resolvePhysicalPath(folder) : undefined; }
-export function projectsRootFolder() { return projectsRoot; }
+let accessMode = "no";
+const operationAccess = new AsyncLocalStorage();
+export function withOperationAccess(writeRoots, readRoots, run) {
+    return operationAccess.run({ writeRoots: writeRoots.map(resolvePhysicalPath), readRoots: readRoots.map(resolvePhysicalPath) }, run);
+}
+export function setProjectsRoot(folder, mode = "no") {
+    projectsRoot = folder ? resolvePhysicalPath(folder) : undefined;
+    accessMode = mode;
+}
+export function projectsRootFolder() { return accessMode === "project" || accessMode === "review" ? projectsRoot : undefined; }
+export function assetOutputRoot() {
+    if (accessMode === "project") {
+        if (!projectsRoot)
+            throw new Error("Project access requires a user-selected project workspace in plugin settings");
+        const target = resolvePhysicalPath(path.join(projectsRoot, "asset-curator"));
+        if (target !== path.join(projectsRoot, "asset-curator"))
+            throw new Error("Project assets folder must not link outside its fixed output location");
+        return target;
+    }
+    if (accessMode === "review")
+        return resolvePhysicalPath(path.join(os.homedir(), "Downloads", "asset-curator-review"));
+    return resolvePhysicalPath(path.join(os.homedir(), "Downloads"));
+}
 export function isInsidePath(root, target) {
     const relative = path.relative(root, target);
     return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
-export function assertWithinSafeRoot(targetPath, label) {
-    if (process.env.ASSET_GRABBER_ALLOW_UNSAFE_PATHS === "1")
+export function assertWithinSafeRoot(targetPath, label, readOnly = false, importFromDownloads = false) {
+    if (accessMode === "full" || accessMode === "hermes")
         return;
-    const root = resolvePhysicalPath(process.env.ASSET_GRABBER_SAFE_ROOT ?? process.cwd());
     const target = resolvePhysicalPath(targetPath);
-    if (isInsidePath(root, target) || (projectsRoot && isInsidePath(projectsRoot, target)))
+    const granted = operationAccess.getStore();
+    if (granted?.writeRoots.some(root => isInsidePath(root, target)) || (readOnly && granted?.readRoots.some(root => isInsidePath(root, target))))
         return;
-    throw new Error(`${label} is outside safe root (${root})${projectsRoot ? ` and the chosen projects folder (${projectsRoot})` : ""}: ${target}`);
+    if (accessMode === "project" && projectsRoot && isInsidePath(projectsRoot, target))
+        return;
+    const output = assetOutputRoot();
+    if (isInsidePath(output, target))
+        return;
+    if (readOnly) {
+        const downloads = resolvePhysicalPath(path.join(os.homedir(), "Downloads"));
+        if (importFromDownloads && (accessMode === "project" || accessMode === "review") && isInsidePath(downloads, target))
+            return;
+        const internal = resolvePhysicalPath(process.env.ASSET_GRABBER_SAFE_ROOT ?? process.cwd());
+        if (isInsidePath(internal, target) || ((accessMode === "project" || accessMode === "review") && projectsRoot && isInsidePath(projectsRoot, target)))
+            return;
+    }
+    throw new Error(`${label} is outside the user-selected ${accessMode} access boundary: ${target}`);
 }
 // Resolve existing ancestors too: a not-yet-created output under a junction must
 // not bypass the safe root. An unresolved symlink is never a writable ancestor.

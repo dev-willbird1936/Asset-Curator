@@ -28,6 +28,7 @@ export type AssetPreferences = {
   triggerMode: "auto" | "on-request";
   /** Optional folder the user chose at setup; the plugin may also write inside it. */
   projectsFolder?: string;
+  accessMode?: "hermes" | "full" | "project" | "review" | "no";
 };
 
 export type AssetGrabberSettings = {

@@ -69,3 +69,31 @@ The same dungeon-game brief was run in Hermes with no plugin, existing-only, cre
 - Kenney packs need the consented browser route; that route was not re-tested in this pass.
 - Openverse is rate-limited for anonymous use (20 requests a minute, 200 a day).
 - Audio was not auditioned. macOS and Linux are untested. Catalog acceptance is not guaranteed.
+
+## Permission modes and Asset Review Queue (0.3.0)
+
+13 November 2026, isolated cloud Linux profile / Node 24. This revision changes permission routing and adds three review tools; historical creative-quality results above are not a rerun of 0.3.0.
+
+From `hermes/asset-curator/runtime`:
+
+- `npm run check`: strict TypeScript check passed.
+- `npm run test:access`: all five test programs passed.
+  - `access-boundary.mjs`: model scope-change rejection, legacy migration, environment settings, project traversal/symlink limits and revocation.
+  - `downloads-import.mjs`: real MCP import of a self-created CC0 SVG from Downloads to project/asset-curator; exact bytes, licence pointer, manifest read-back and prepared-file reuse; original retained, unauthorized writes/escape denied.
+  - `host-approval.mjs`: MCP form accept/decline/cancel/missing capability; forged approved flag ignored; exact scoped destination; saved mode unchanged; each exception asks again; cancellation with a late accept causes no file write; Hermes-managed/full/project paths exercised.
+  - `review-queue.mjs`: content hashes before/after consent, link and overwrite rejection, replay/concurrency, provenance, safe HTML, CSRF/origin checks, one selected decision per invocation, retained original downloads.
+  - `review-mcp.mjs`: all 19 tools discovered through the packaged launcher; PNG preview/pending count; HTML Yes/No only stages intent; host-confirmed import; rebased readable manifest and exact usable file bytes; decline/rejection; original retained.
+- Current Hermes source was checked for MCP form elicitation and trust-gating semantics, including compatibility in v0.23.1. No filesystem-sandbox inheritance is claimed.
+
+Fresh Hermes integration passed on Hermes commit `6b3697105770eb473836e020633e4a8e1a274577`, Python 3.14.9, MCP SDK 2.3.0 and Node 26.12.1:
+
+- Installed/enabled a disposable immutable local Git snapshot through the real plugin manager; explicit locked dependency setup completed.
+- CLI Doctor and Validate passed with no findings; all 98 installed runtime hashes matched BUILD.json.
+- All 19 tools were discovered through actual Hermes MCP transport.
+- Real untrusted-tool gating, ElicitationHandler and approval router exercised all five modes. Only human CLI answers were simulated. Decline/cancel blocked writes; forged flags did nothing; accepted exceptions stayed one-off; saved no mode remained unchanged.
+- Project mode wrote to default/custom workspace destinations; an external destination required approval.
+- Review HTML selection made no project changes. Host decline blocked promotion; host acceptance produced usable PNG bytes and a rebased, readable manifest, preserving original downloads.
+- Hermes' own elicitation/trust-gating/approval-scope suites passed 33 tests.
+- Forced reinstall removed Node dependencies: launch failed closed with the documented setup instruction and no hidden install. Explicit setup then restored the plugin.
+
+ Tests simulate human choices only at the approval UI seam; they do not impersonate a real owner's approval. HTML HTTP/form tests passed, including PNG embedding, pending count and both intent-only buttons. Real Chromium rendering was blocked by the test environment denying required sockets; no screenshots or visual/responsive pass is claimed. A viewport declaration is included. Windows/macOS regression, live provider retrieval and creative-quality testing are not claimed for this revision.

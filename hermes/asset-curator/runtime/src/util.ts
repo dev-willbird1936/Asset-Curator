@@ -1,4 +1,6 @@
 import path from "node:path";
+import os from "node:os";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { lstatSync, realpathSync } from "node:fs";
 import { rename } from "node:fs/promises";
 
@@ -76,7 +78,7 @@ export function tokenize(value: string): string[] {
 }
 
 export function resolveOutputDir(outputDir: string | undefined): string {
-  const resolved = path.resolve(outputDir ?? process.env.ASSET_GRABBER_OUTPUT_DIR ?? "assets-grabbed");
+  const resolved = path.resolve(assetOutputRoot(), outputDir ?? "assets-grabbed");
   assertWithinSafeRoot(resolved, "output directory");
   return resolved;
 }
@@ -126,21 +128,48 @@ export function hasAncestorTraversal(filePath: string): boolean {
   return normalized.split("/").some((part) => part === "..");
 }
 
-// The projects folder the user explicitly chose in setup: a second allowed boundary, nothing wider.
+// Access is configured only by the user's settings route, never by a model tool.
 let projectsRoot: string | undefined;
-export function setProjectsRoot(folder: string | undefined): void { projectsRoot = folder ? resolvePhysicalPath(folder) : undefined; }
-export function projectsRootFolder(): string | undefined { return projectsRoot; }
+export type AccessMode = "hermes" | "full" | "project" | "review" | "no";
+let accessMode: AccessMode = "no";
+const operationAccess = new AsyncLocalStorage<{ writeRoots: string[]; readRoots: string[] }>();
+export function withOperationAccess<T>(writeRoots: string[], readRoots: string[], run: () => Promise<T>): Promise<T> {
+  return operationAccess.run({ writeRoots: writeRoots.map(resolvePhysicalPath), readRoots: readRoots.map(resolvePhysicalPath) }, run);
+}
+export function setProjectsRoot(folder: string | undefined, mode: AccessMode = "no"): void {
+  projectsRoot = folder ? resolvePhysicalPath(folder) : undefined;
+  accessMode = mode;
+}
+export function projectsRootFolder(): string | undefined { return accessMode === "project" || accessMode === "review" ? projectsRoot : undefined; }
+export function assetOutputRoot(): string {
+  if (accessMode === "project") {
+    if (!projectsRoot) throw new Error("Project access requires a user-selected project workspace in plugin settings");
+    const target = resolvePhysicalPath(path.join(projectsRoot, "asset-curator"));
+    if (target !== path.join(projectsRoot, "asset-curator")) throw new Error("Project assets folder must not link outside its fixed output location");
+    return target;
+  }
+  if (accessMode === "review") return resolvePhysicalPath(path.join(os.homedir(), "Downloads", "asset-curator-review"));
+  return resolvePhysicalPath(path.join(os.homedir(), "Downloads"));
+}
 export function isInsidePath(root: string, target: string): boolean {
   const relative = path.relative(root, target);
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
-
-export function assertWithinSafeRoot(targetPath: string, label: string): void {
-  if (process.env.ASSET_GRABBER_ALLOW_UNSAFE_PATHS === "1") return;
-  const root = resolvePhysicalPath(process.env.ASSET_GRABBER_SAFE_ROOT ?? process.cwd());
+export function assertWithinSafeRoot(targetPath: string, label: string, readOnly = false, importFromDownloads = false): void {
+  if (accessMode === "full" || accessMode === "hermes") return;
   const target = resolvePhysicalPath(targetPath);
-  if (isInsidePath(root, target) || (projectsRoot && isInsidePath(projectsRoot, target))) return;
-  throw new Error(`${label} is outside safe root (${root})${projectsRoot ? ` and the chosen projects folder (${projectsRoot})` : ""}: ${target}`);
+  const granted = operationAccess.getStore();
+  if (granted?.writeRoots.some(root => isInsidePath(root, target)) || (readOnly && granted?.readRoots.some(root => isInsidePath(root, target)))) return;
+  if (accessMode === "project" && projectsRoot && isInsidePath(projectsRoot, target)) return;
+  const output = assetOutputRoot();
+  if (isInsidePath(output, target)) return;
+  if (readOnly) {
+    const downloads = resolvePhysicalPath(path.join(os.homedir(), "Downloads"));
+    if (importFromDownloads && (accessMode === "project" || accessMode === "review") && isInsidePath(downloads, target)) return;
+    const internal = resolvePhysicalPath(process.env.ASSET_GRABBER_SAFE_ROOT ?? process.cwd());
+    if (isInsidePath(internal, target) || ((accessMode === "project" || accessMode === "review") && projectsRoot && isInsidePath(projectsRoot, target))) return;
+  }
+  throw new Error(`${label} is outside the user-selected ${accessMode} access boundary: ${target}`);
 }
 
 // Resolve existing ancestors too: a not-yet-created output under a junction must
